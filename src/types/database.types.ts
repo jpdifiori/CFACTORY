@@ -88,7 +88,7 @@ export type Database = {
           created_at: string
           project_id: string
           name: string
-          objective: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo'
+          objective: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo' | 'Redireccion'
           pillars: string[] | null
           cta: string
           visual_style: 'Fotografia_Realista' | 'Ilustracion_3D' | 'Minimalista' | 'Cinematic_8k'
@@ -103,13 +103,14 @@ export type Database = {
           strategic_objective: string | null
           duration_type: string | null
           differential: string | null
+          target_url: string | null
         }
         Insert: {
           id?: string
           created_at?: string
           project_id: string
           name: string
-          objective: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo'
+          objective: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo' | 'Redireccion'
           pillars?: string[] | null
           cta: string
           visual_style: 'Fotografia_Realista' | 'Ilustracion_3D' | 'Minimalista' | 'Cinematic_8k'
@@ -123,13 +124,14 @@ export type Database = {
           problem_solved?: string | null
           strategic_objective?: string | null
           duration_type?: string | null
+          target_url?: string | null
         }
         Update: {
           id?: string
           created_at?: string
           project_id?: string
           name?: string
-          objective?: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo'
+          objective?: 'Educativo' | 'Venta Directa' | 'Autoridad_Miedo' | 'Redireccion'
           pillars?: string[] | null
           cta?: string
           visual_style?: 'Fotografia_Realista' | 'Ilustracion_3D' | 'Minimalista' | 'Cinematic_8k'
@@ -144,6 +146,7 @@ export type Database = {
           strategic_objective?: string | null
           duration_type?: string | null
           differential?: string | null
+          target_url?: string | null
         }
       }
       content_queue: {

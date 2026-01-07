@@ -10,12 +10,12 @@ export async function publishContentAction(itemId: string) {
 
     try {
         // 1. Fetch item with campaign details
-        const { data: item, error: fetchError } = await supabase
+        const { data: item, error: fetchError } = await (supabase
             .from('content_queue')
             .select('*, campaigns(*)')
             .eq('id', itemId)
             .eq('user_id', user.id)
-            .single()
+            .single() as any)
 
         if (fetchError || !item) throw new Error("Item not found")
 

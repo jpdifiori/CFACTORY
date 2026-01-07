@@ -80,11 +80,11 @@ export default function ProjectPage() {
     const fetchProfile = async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-            const { data } = await supabase
+            const { data } = await (supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
-                .single()
+                .single() as any)
             if (data) setProfile(data)
         }
     }
@@ -128,12 +128,12 @@ export default function ProjectPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase
             .from('project_master')
             .select('*')
             .eq('id', projectId)
             .eq('user_id', user.id)
-            .single()
+            .single() as any)
 
         if (error) console.error('Error fetching project:', error)
         if (data) setProject(data)

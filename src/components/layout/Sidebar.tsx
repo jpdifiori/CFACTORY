@@ -41,11 +41,11 @@ export function Sidebar() {
         if (projData) setProjects(projData)
 
         // Fetch Usage
-        const { data: profile } = await supabase
+        const { data: profile } = await (supabase
             .from('profiles')
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
-            .single()
+            .single() as any)
 
         if (profile) {
             setUsage({

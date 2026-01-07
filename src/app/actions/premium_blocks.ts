@@ -51,12 +51,12 @@ export async function generateChapterBlueprintAction(chapterId: string) {
             language: 'Español'
         })
 
-        if (!blueprint?.blocks?.length) {
+        if (!blueprint?.data?.blocks?.length) {
             return { success: false, error: "AI failed to generate structural blueprint" }
         }
 
         // 3. Insert Blocks as Pending
-        const blocksToInsert = blueprint.blocks.map((b, idx) => ({
+        const blocksToInsert = blueprint.data.blocks.map((b, idx) => ({
             project_id: (chapter as any).premium_project_id,
             chapter_id: (chapter as any).id,
             index: idx,
@@ -109,13 +109,13 @@ export async function generateBlockContentAction(blockId: string) {
             .update({ status: 'Generating' })
             .eq('id', blockId)
 
-        console.log("Running block generation for:", blockId, "type:", (block as any).type)
+        console.log("Running block generation for:", blockId, "type:", block.type)
 
         // 2. Run Atomic Generation
-        const ebookTitle = (block as any).premium_content_projects?.title || 'MassGenix Project'
+        const ebookTitle = block.premium_content_projects?.title || 'MassGenix Project'
 
         const genResult = await runBlockGenerationFlow({
-            blockType: (block as any).type,
+            blockType: block.type,
             chapterTitle: ebookTitle,
             ebookTopic: ebookTitle,
             context: {
@@ -131,9 +131,9 @@ export async function generateBlockContentAction(blockId: string) {
         const { error: updateError } = await (supabase
             .from('content_blocks') as any)
             .update({
-                content_json: genResult.content || {},
-                image_url: genResult.image_prompt || null,
-                status: genResult.image_prompt ? 'ProcessingImage' : 'Completed'
+                content_json: genResult.data.content || {},
+                image_url: genResult.data.image_prompt || null,
+                status: genResult.data.image_prompt ? 'ProcessingImage' : 'Completed'
             })
             .eq('id', blockId)
 
@@ -145,10 +145,10 @@ export async function generateBlockContentAction(blockId: string) {
         console.log("Database updated with content for block:", blockId)
 
         // 4. Trigger Image Generation if needed
-        if (genResult.image_prompt) {
+        if (genResult.data.image_prompt) {
             try {
                 console.log("Starting image generation for block:", blockId)
-                const finalImageUrl = await callFalAiFlux(genResult.image_prompt)
+                const finalImageUrl = await callFalAiFlux(genResult.data.image_prompt)
                 console.log("Image generation success. New URL:", finalImageUrl)
 
                 const { error: imgUpdateError } = await (supabase
@@ -171,7 +171,7 @@ export async function generateBlockContentAction(blockId: string) {
             }
         }
 
-        revalidatePath(`/premium-forge/${(block as any).project_id}`)
+        revalidatePath(`/premium-forge/${block.project_id}`)
         return { success: true }
     } catch (error: any) {
         console.error("Block generation fatal error:", error)

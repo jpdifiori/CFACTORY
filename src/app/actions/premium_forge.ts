@@ -34,11 +34,11 @@ export async function createPremiumProjectAction(formData: {
     if (!user) throw new Error("Not authenticated")
 
     // 1. Fetch project master data for context
-    const { data: projectMaster } = await supabase
+    const { data: projectMaster } = await (supabase
         .from('project_master')
         .select('*')
         .eq('id', formData.projectId)
-        .single()
+        .single() as any)
 
     if (!projectMaster) throw new Error("Project not found")
 
@@ -69,7 +69,7 @@ export async function createPremiumProjectAction(formData: {
             language: formData.language
         })
 
-        const chapters = outline.chapters.map(ch => ({
+        const chapters = outline.data.chapters.map(ch => ({
             premium_project_id: project.id,
             chapter_index: ch.index,
             title: ch.title,
@@ -108,23 +108,23 @@ export async function generateChapterAction(chapterId: string) {
 
     // 1. Fetch chapter and project info
     const { data: chapterResult } = await (supabase
-        .from('content_chapters') as any)
+        .from('content_chapters')
         .select(`
             *,
             premium_content_projects (*)
         `)
         .eq('id', chapterId)
-        .single()
+        .single() as any)
 
     const ch = chapterResult as any
     if (!ch) throw new Error("Chapter not found")
 
     // 2. Fetch project context
-    const { data: projectMaster } = await supabase
+    const { data: projectMaster } = await (supabase
         .from('project_master')
         .select('*')
         .eq('id', ch.premium_content_projects.project_id)
-        .single()
+        .single() as any)
 
     // 3. Fetch previous summaries for context
     const { data: previousChapters } = await supabase
@@ -159,7 +159,7 @@ export async function generateChapterAction(chapterId: string) {
 
         // 5. Stitch Images (FAL.ai + Regex)
         const stitchedHtml = await stitchImages(
-            genResult.content_markdown,
+            genResult.data.content_markdown,
             ch.premium_content_projects.id,
             user.id
         )
@@ -168,9 +168,9 @@ export async function generateChapterAction(chapterId: string) {
         const { error: updateError } = await (supabase
             .from('content_chapters') as any)
             .update({
-                content_markdown: genResult.content_markdown,
+                content_markdown: genResult.data!.content_markdown,
                 content_html: stitchedHtml,
-                summary: genResult.summary,
+                summary: genResult.data!.summary,
                 status: 'Completed'
             })
             .eq('id', chapterId)
@@ -209,11 +209,11 @@ export async function generateForgeWizardOptionsAction(topic: string, projectId:
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Not authenticated")
 
-    const { data: projectMaster } = await supabase
+    const { data: projectMaster } = await (supabase
         .from('project_master')
         .select('*')
         .eq('id', projectId)
-        .single()
+        .single() as any)
 
     if (!projectMaster) throw new Error("Project not found")
 

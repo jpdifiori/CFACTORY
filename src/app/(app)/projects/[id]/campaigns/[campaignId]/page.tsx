@@ -89,7 +89,7 @@ export default function CampaignDetailPage() {
     }
 
     const fetchProject = async () => {
-        const { data } = await supabase.from('project_master').select('*').eq('id', projectId).single()
+        const { data } = await (supabase.from('project_master').select('*').eq('id', projectId).single() as any)
         if (data) setProject(data)
     }
 

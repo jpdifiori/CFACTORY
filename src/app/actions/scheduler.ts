@@ -11,11 +11,11 @@ export async function autoFillScheduleAction(projectId: string) {
 
     try {
         // 1. Fetch User Profile for schedule_config
-        const { data: profile } = await supabase
+        const { data: profile } = await (supabase
             .from('profiles')
             .select('schedule_config')
             .eq('id', user.id)
-            .single()
+            .single() as any)
 
         const config = (profile as any)?.schedule_config || {
             workdays: { count: 1, hours: ['09:00'] },

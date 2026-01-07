@@ -39,11 +39,11 @@ export default function EditProjectPage() {
 
     const fetchProject = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase
                 .from('project_master')
                 .select('*')
                 .eq('id', projectId)
-                .single()
+                .single() as any)
 
             if (error) throw error
             if (data) {

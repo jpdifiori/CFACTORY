@@ -24,11 +24,11 @@ export default function SettingsPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            const { data, error } = await supabase
+            const { data, error } = await (supabase
                 .from('profiles')
                 .select('full_name, job_title')
                 .eq('id', user.id)
-                .single()
+                .single() as any)
 
             if (error) {
                 console.error('Supabase fetch error details:', {

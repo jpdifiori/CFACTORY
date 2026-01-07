@@ -23,11 +23,11 @@ export async function recordAIUsageAction(
 
         if (profileError) {
             // Fallback if RPC doesn't exist yet, though RPC is safer for concurrency
-            const { data: profile } = await supabase
+            const { data: profile } = await (supabase
                 .from('profiles')
                 .select('total_tokens_used')
                 .eq('id', user.id)
-                .single()
+                .single() as any)
 
             const current = ((profile as any)?.total_tokens_used || 0) as number
             await (supabase
@@ -61,11 +61,11 @@ export async function getUserUsageAction() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return null
 
-        const { data: profile } = await supabase
+        const { data: profile } = await (supabase
             .from('profiles')
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
-            .single()
+            .single() as any)
 
         return profile
     } catch (e) {

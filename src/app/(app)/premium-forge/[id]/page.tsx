@@ -144,11 +144,11 @@ export default function PremiumProjectDetailPage() {
     }, [selectedChapter])
 
     const fetchProjectData = async () => {
-        const { data: p } = await supabase
+        const { data: p } = await (supabase
             .from('premium_content_projects')
             .select(`*, project_master(app_name)`)
             .eq('id', id as string)
-            .single()
+            .single() as any)
 
         const { data: c } = await supabase
             .from('content_chapters')
@@ -252,11 +252,11 @@ export default function PremiumProjectDetailPage() {
                     setBlocks(prev => (prev || []).map(b => b.id === block.id ? { ...b, status: 'Error' } : b))
                 } else {
                     // Refresh this specific block's data after success
-                    const { data: updatedBlock } = await supabase
+                    const { data: updatedBlock } = await (supabase
                         .from('content_blocks')
                         .select('*')
                         .eq('id', block.id)
-                        .single()
+                        .single() as any)
 
                     if (updatedBlock) {
                         setBlocks(prev => (prev || []).map(b => b.id === block.id ? updatedBlock : b))

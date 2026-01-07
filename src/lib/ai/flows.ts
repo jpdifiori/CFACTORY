@@ -126,6 +126,7 @@ interface CopywriterInput {
         differential: string
         problemSolved: string
         customInstructions: string | null
+        target_url?: string | null
         lastHeadlines?: string[]
         // Strategy Context Injection
         strategyContext?: {
@@ -188,6 +189,7 @@ export async function runCopywriterFlow(input: CopywriterInput): Promise<AIRespo
     - Target Orientation: ${strategyContext?.orientation || 'N/A'}
     - Core Problem Solved: ${strategyContext?.problem || 'N/A'}
     - Campaign USP: ${strategyContext?.differential || 'N/A'}
+    ${input.context.target_url ? `- TARGET CONVERSION URL: ${input.context.target_url}` : ''}
     
     PREVIOUSLY USED HEADLINES (AVOID DUPLICATING OR SIMILAR VIBE):
     ${input.context.lastHeadlines && input.context.lastHeadlines.length > 0
@@ -209,6 +211,7 @@ export async function runCopywriterFlow(input: CopywriterInput): Promise<AIRespo
     Body Copy Requirements:
     - Weave the Competitive Differential: "${strategyContext?.differential || input.context.differential}" into the text.
     - Mention the core offering: "${input.context.offering}".
+    ${input.context.target_url ? `- MANDATORY RULE: You must include the link "${input.context.target_url}" in the body text with a clear and compelling call-to-action (CTA) for the user to visit the site.` : ''}
     - Language: **${input.context.language}**.
     
     VISUAL STRUCTURE & FORMATTING (MANDATORY):
@@ -311,6 +314,7 @@ export async function generateDetailedFlow(input: {
                     differential: input.context.differential,
                     problemSolved: input.context.problemSolved,
                     customInstructions: input.campaign.custom_copy_instructions,
+                    target_url: input.campaign.target_url,
                     lastHeadlines: input.lastHeadlines,
                     strategyContext: input.context.strategyContext
                 }

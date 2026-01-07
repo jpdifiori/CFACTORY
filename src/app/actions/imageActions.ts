@@ -30,10 +30,10 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
             const base64Data = await generateImageGemini(prompt, params);
             if (base64Data) {
                 // Fetch project_id for this item to match RLS policies
-                const { data: itemData } = await (supabase.from('content_queue') as any)
+                const { data: itemData } = await (supabase.from('content_queue')
                     .select('project_id')
                     .eq('id', itemId)
-                    .single();
+                    .single() as any);
 
                 const targetFolder = itemData?.project_id || user.id;
 
@@ -216,10 +216,10 @@ export async function bakeImageWithTextAction(itemId: string, config: {
         if (!user) throw new Error("Not authenticated");
 
         // 1. Fetch current item info
-        const { data: item } = await (supabase.from('content_queue') as any)
+        const { data: item } = await (supabase.from('content_queue')
             .select('image_url, image_final_url, project_id')
             .eq('id', itemId)
-            .single();
+            .single() as any);
 
         // Use image_url (the raw background) if available. 
         // This is crucial to avoid baking text on top of already baked text.

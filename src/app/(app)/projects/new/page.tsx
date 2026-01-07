@@ -36,10 +36,10 @@ export default function NewProjectPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error('Not authenticated')
 
-            const { data, error } = await supabase
+            const { data, error } = await (supabase
                 .from('project_master')
                 .insert([{ ...formData, user_id: user.id }] as any)
-                .select()
+                .select() as any)
 
             if (error) throw error
 

@@ -21,6 +21,7 @@ const OBJ_OPTIONS = [
     { value: 'Educativo', label: 'Educativo (Teach & Value)', framework: 'Hook-Story-Offer' },
     { value: 'Venta Directa', label: 'Venta Directa (Conversion)', framework: 'AIDA' },
     { value: 'Autoridad_Miedo', label: 'Autoridad/Miedo (Problem Aware)', framework: 'PAS' },
+    { value: 'Redireccion', label: 'Redirección a Web/Leads', framework: 'AIDA' },
 ]
 
 const PILLAR_OPTIONS = [
@@ -86,7 +87,8 @@ export default function NewCampaignPage() {
         color_palette: '',
         mood: '',
         custom_copy_instructions: '',
-        custom_visual_instructions: ''
+        custom_visual_instructions: '',
+        target_url: ''
     })
 
     const handleAnalyzeMarket = async () => {
