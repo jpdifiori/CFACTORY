@@ -12,7 +12,7 @@ type BrandVoice = Database['public']['Tables']['project_master']['Row']['brand_v
 
 export default function NewProjectPage() {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = React.useMemo(() => createClient(), [])
     const { t, lang } = useLanguage()
     const [loading, setLoading] = useState(false)
 
