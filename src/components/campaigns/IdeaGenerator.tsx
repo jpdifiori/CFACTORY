@@ -33,7 +33,8 @@ export function IdeaGenerator({ project, campaign, onSelectIdea }: IdeaGenerator
                     offering: project.description,
                     differential: project.usp,
                     topic: campaign.topic || project.niche_vertical,
-                    strategicObjective: campaign.strategic_objective || campaign.objective
+                    strategicObjective: campaign.strategic_objective || campaign.objective,
+                    target_url: campaign.target_url
                 },
                 campaignId: campaign.id,
                 objective: campaign.strategic_objective || campaign.objective,

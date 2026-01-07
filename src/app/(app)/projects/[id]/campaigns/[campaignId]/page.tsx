@@ -166,6 +166,7 @@ export default function CampaignDetailPage() {
                     offering: project.description,
                     differential: campaign.differential || project.usp,
                     problemSolved: campaign.problem_solved || project.problem_solved,
+                    target_url: campaign.target_url,
                     strategyContext: {
                         topic: campaign.topic || project.niche_vertical,
                         orientation: campaign.target_orientation || project.target_audience,

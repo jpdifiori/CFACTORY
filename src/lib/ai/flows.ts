@@ -46,6 +46,7 @@ export async function runIdeaGeneratorFlow(input: {
     - SPECIFIC AUDIENCE FOCUS: ${input.context.targetAudience}
     - CORE PROBLEM: ${input.context.problemSolved}
     - CAMPAIGN USP: ${input.context.differential}
+    ${input.context.target_url ? `- TARGET CONVERSION URL: ${input.context.target_url} (The ideas should prioritize driving traffic to this link)` : ''}
     
     RECENTLY GENERATED CONTENT (Avoid repetition!):
     ${input.lastPosts.length > 0 ? input.lastPosts.map(p => `- ${p}`).join('\n') : 'No recent posts.'}
