@@ -24,7 +24,7 @@ export function Header() {
     }
 
     return (
-        <header className="fixed top-0 right-0 left-0 lg:left-72 z-[100] px-4 md:px-8 py-4 lg:py-6">
+        <header className="fixed top-0 right-0 left-0 lg:left-72 z-[999] px-4 md:px-8 py-4 lg:py-6">
             <div className="max-w-7xl mx-auto flex items-center justify-between glass px-6 py-4 rounded-[2rem] border-white/5 shadow-2xl backdrop-blur-2xl">
                 <div className="flex items-center gap-4">
                     <button

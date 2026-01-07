@@ -45,7 +45,7 @@ export function UserMenu() {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-3 w-64 glass rounded-[2rem] border-white/10 p-2 shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="absolute right-0 mt-3 w-64 glass rounded-[2rem] border-white/10 p-2 shadow-2xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="p-4 border-b border-white/5">
                         <p className="text-sm font-black text-white">{t.nav.settings}</p>
                     </div>
