@@ -1,26 +1,41 @@
-import CryptoJS from 'crypto-js';
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
 
 const FALLBACK_SECRET = 'cfabric-safe-vault-2026';
 const SECRET_KEY = process.env.ENCRYPTION_SECRET || FALLBACK_SECRET;
 
-/**
- * Encrypts a string using AES encryption and a project-specific salt.
- * @param text The plain text to encrypt
- * @param projectId Optional project ID to use as extra salt
- */
-export function encryptToken(text: string, projectId: string): string {
-    // We combine the global secret with the project ID for project-specific encryption
-    const dynamicKey = `${SECRET_KEY}-${projectId}`;
-    return CryptoJS.AES.encrypt(text, dynamicKey).toString();
+function getKey(projectId: string): Buffer {
+    // Derive a 32-byte key from the secret and project ID
+    return createHash('sha256').update(`${SECRET_KEY}-${projectId}`).digest();
 }
 
 /**
- * Decrypts a string using AES encryption and a project-specific salt.
- * @param ciphertext The encrypted text to decrypt
- * @param projectId The project ID used during encryption
+ * Encrypts a string using AES-256-CBC (Native Node.js).
+ * Format: iv:ciphertext (hex encoded)
  */
-export function decryptToken(ciphertext: string, projectId: string): string {
-    const dynamicKey = `${SECRET_KEY}-${projectId}`;
-    const bytes = CryptoJS.AES.decrypt(ciphertext, dynamicKey);
-    return bytes.toString(CryptoJS.enc.Utf8);
+export function encryptToken(text: string, projectId: string): string {
+    const key = getKey(projectId);
+    const iv = randomBytes(16); // AES-256-CBC needs 16-byte IV
+    const cipher = createCipheriv('aes-256-cbc', key, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    return `${iv.toString('hex')}:${encrypted}`;
+}
+
+/**
+ * Decrypts a string using AES-256-CBC (Native Node.js).
+ */
+export function decryptToken(encryptedFull: string, projectId: string): string {
+    const [ivHex, encryptedText] = encryptedFull.split(':');
+    if (!ivHex || !encryptedText) throw new Error('Invalid encrypted format');
+
+    const key = getKey(projectId);
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = createDecipheriv('aes-256-cbc', key, iv);
+
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
 }
