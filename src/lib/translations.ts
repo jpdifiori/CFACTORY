@@ -349,6 +349,7 @@ export interface Translation {
         no_data: string
         filter_campaign: string
         filter_month: string
+        success: string
     }
     premium_forge: {
         badge: string
@@ -856,7 +857,8 @@ export const translations: Record<Language, Translation> = {
             search: "Search...",
             no_data: "No items found",
             filter_campaign: "Filter by Campaign",
-            filter_month: "Filter by Month"
+            filter_month: "Filter by Month",
+            success: "Success"
         },
         premium_forge: {
             badge: "Standard Subscription Required",
@@ -1362,7 +1364,8 @@ export const translations: Record<Language, Translation> = {
             search: "Buscar...",
             no_data: "No hay datos",
             filter_campaign: "Filtrar por Campaña",
-            filter_month: "Filtrar por Mes"
+            filter_month: "Filtrar por Mes",
+            success: "Éxito"
         },
         premium_forge: {
             badge: "Suscripción Estándar Requerida",
