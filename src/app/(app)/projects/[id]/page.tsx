@@ -437,6 +437,7 @@ export default function ProjectPage() {
                                     setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
                                     (supabase.from('content_queue') as any).update({ status }).eq('id', id).then()
                                 }}
+                                onPublish={handlePublish}
                             />
                         </div>
                     ))}

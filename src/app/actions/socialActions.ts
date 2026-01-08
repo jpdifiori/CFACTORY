@@ -13,7 +13,7 @@ export async function saveSocialConnectionAction(formData: {
     platformId: string;
     accessToken: string;
 }) {
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
@@ -21,8 +21,8 @@ export async function saveSocialConnectionAction(formData: {
     // Encrypt the token using the projectId as salt
     const encryptedToken = encryptToken(formData.accessToken, formData.projectId)
 
-    const { data, error } = await supabase
-        .from('social_connections')
+    const { data, error } = await (supabase
+        .from('social_connections') as any)
         .insert({
             project_id: formData.projectId,
             user_id: user.id,
@@ -44,7 +44,7 @@ export async function saveSocialConnectionAction(formData: {
 }
 
 export async function testSocialConnectionAction(connectionId: string) {
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
 
     const { data: connection, error: fetchError } = await supabase
         .from('social_connections')
@@ -98,7 +98,7 @@ export async function testSocialConnectionAction(connectionId: string) {
 }
 
 export async function updateSafetyZonesAction(projectId: string, safetyZones: any) {
-    const supabase = await createClient()
+    const supabase = (await createClient()) as any
 
     const { error } = await supabase
         .from('project_master')
