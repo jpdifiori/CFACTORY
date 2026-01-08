@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
 import { User, Save, Loader2, Sparkles } from 'lucide-react'
+import { useTitle } from '@/context/TitleContext'
 
 export default function SettingsPage() {
     const supabase = createClient()
     const { t } = useLanguage()
+    const { setTitle } = useTitle()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [profile, setProfile] = useState({
@@ -17,7 +19,9 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchProfile()
-    }, [])
+        setTitle(t.nav.settings)
+        return () => setTitle('')
+    }, [setTitle, t.nav.settings])
 
     const fetchProfile = async () => {
         try {

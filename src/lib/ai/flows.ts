@@ -244,10 +244,12 @@ export async function runVisualArtistFlow(input: VisualArtistInput): Promise<AIR
       Role: Professional Creative Director.
       Task: Design a high-end visual composition for: "${input.postContent.headline}".
       
-      Visual Strategy:
+      STRICT VISUAL STRATEGY (MANDATORY):
       - Style: ${input.visual_style}
       - Mood: ${input.mood || 'Professional and clean'}
       - Color Palette: ${input.color_palette || 'Harmonious'}
+      
+      INSTRUCTION: You MUST incorporate the Style, Mood, and Color Palette described above into your visual design. These are non-negotiable.
       
       Visual Composition (CRITICAL):
       - DO NOT RENDER ANY TEXT, LETTERS, OR CHARACTERS.
@@ -256,7 +258,7 @@ export async function runVisualArtistFlow(input: VisualArtistInput): Promise<AIR
       
       ${input.customInstructions ? `- MASTER CREATIVE DIRECTIVE: ${input.customInstructions}` : ''}
       
-      Output: JUST THE FINAL AUGMENTED PROMPT string for Flux.ai.
+      Output: JUST THE FINAL AUGMENTED PROMPT string for Flux.ai / Imagen 4.
     `
     return generateText(prompt)
 }
@@ -301,7 +303,7 @@ export async function generateDetailedFlow(input: {
                 strategy: strategyItem,
                 context: {
                     niche: input.context.niche,
-                    brandVoice: input.context.brandVoice,
+                    brandVoice: input.campaign.brandVoice || input.context.brandVoice,
                     objective: input.campaign.strategic_objective || input.campaign.objective,
                     angle: angle,
                     hashtags: {

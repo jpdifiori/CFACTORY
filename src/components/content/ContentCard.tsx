@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { MoreHorizontal, Edit, Trash2, Download, ExternalLink, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2, Download, ExternalLink, Calendar, CheckCircle2, Clock, AlertCircle, Send, Loader2 } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import { format } from 'date-fns'
 import { useLanguage } from '@/context/LanguageContext'
@@ -12,11 +12,13 @@ interface ContentCardProps {
     item: ContentItem
     onEdit: (item: ContentItem) => void
     onStatusUpdate: (id: string, status: ContentItem['status']) => void
+    onPublish: (id: string) => void
 }
 
-export function ContentCard({ item, onEdit, onStatusUpdate }: ContentCardProps) {
+export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: ContentCardProps) {
     const { t } = useLanguage()
     const [showMenu, setShowMenu] = useState(false)
+    const [isPublishing, setIsPublishing] = useState(false)
 
     const statusColors = {
         Draft: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
@@ -251,6 +253,20 @@ export function ContentCard({ item, onEdit, onStatusUpdate }: ContentCardProps) 
                                 title="Approve Content"
                             >
                                 <CheckCircle2 className="w-4 h-4 text-gray-500 group-hover/status:text-green-400" />
+                            </button>
+                        )}
+                        {item.status === 'Approved' && (
+                            <button
+                                onClick={async () => {
+                                    setIsPublishing(true)
+                                    await onPublish(item.id)
+                                    setIsPublishing(false)
+                                }}
+                                disabled={isPublishing}
+                                className="p-2 hover:bg-blue-500/10 rounded-lg transition-colors group/publish"
+                                title="Publish to Socials"
+                            >
+                                {isPublishing ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> : <Send className="w-4 h-4 text-gray-500 group-hover/publish:text-blue-400" />}
                             </button>
                         )}
                         <button className="p-2 hover:bg-red-500/10 rounded-lg transition-colors group/delete">

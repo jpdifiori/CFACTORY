@@ -7,6 +7,7 @@ import { Building2, Target, Sparkles, Loader2, ArrowLeft, Save } from 'lucide-re
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { useLanguage } from '@/context/LanguageContext'
+import { useTitle } from '@/context/TitleContext'
 
 type BrandVoice = Database['public']['Tables']['project_master']['Row']['brand_voice']
 
@@ -15,6 +16,7 @@ export default function EditProjectPage() {
     const params = useParams()
     const supabase = createClient()
     const { t, lang } = useLanguage()
+    const { setTitle } = useTitle()
     const projectId = typeof params.id === 'string' ? params.id : (Array.isArray(params.id) ? params.id[0] : '')
 
     const [loading, setLoading] = useState(true)
@@ -64,6 +66,13 @@ export default function EditProjectPage() {
             setLoading(false)
         }
     }
+
+    useEffect(() => {
+        if (formData.app_name) {
+            setTitle(`${t.projects.edit_title}: ${formData.app_name}`)
+        }
+        return () => setTitle('')
+    }, [formData.app_name, setTitle, t.projects.edit_title])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -115,6 +124,11 @@ export default function EditProjectPage() {
             </div>
         )
     }
+
+    // Effect for cleanup
+    useEffect(() => {
+        return () => setTitle('')
+    }, [setTitle])
 
     return (
         <div className="max-w-3xl mx-auto py-12 px-4">

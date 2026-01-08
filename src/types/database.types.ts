@@ -23,6 +23,7 @@ export type Database = {
           keywords: string[] | null
           logo_url: string | null
           user_id: string
+          safety_zones: Json | null
         }
         Insert: {
           id?: string
@@ -37,6 +38,7 @@ export type Database = {
           keywords?: string[] | null
           logo_url?: string | null
           user_id: string
+          safety_zones?: Json | null
         }
         Update: {
           id?: string
@@ -51,6 +53,7 @@ export type Database = {
           keywords?: string[] | null
           logo_url?: string | null
           user_id?: string
+          safety_zones?: Json | null
         }
       }
       content_strategy: {
@@ -104,6 +107,7 @@ export type Database = {
           duration_type: string | null
           differential: string | null
           target_url: string | null
+          brand_voice: string | null
         }
         Insert: {
           id?: string
@@ -125,6 +129,7 @@ export type Database = {
           strategic_objective?: string | null
           duration_type?: string | null
           target_url?: string | null
+          brand_voice?: string | null
         }
         Update: {
           id?: string
@@ -147,6 +152,7 @@ export type Database = {
           duration_type?: string | null
           differential?: string | null
           target_url?: string | null
+          brand_voice?: string | null
         }
       }
       content_queue: {
@@ -202,6 +208,50 @@ export type Database = {
           user_id?: string
         }
       }
+      social_connections: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          platform: 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'tiktok'
+          account_name: string | null
+          platform_id: string | null
+          encrypted_token: string
+          token_expiry: string | null
+          status: 'active' | 'expired' | 'error'
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          platform: 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'tiktok'
+          account_name?: string | null
+          platform_id?: string | null
+          encrypted_token: string
+          token_expiry?: string | null
+          status?: 'active' | 'expired' | 'error'
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          platform?: 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'tiktok'
+          account_name?: string | null
+          platform_id?: string | null
+          encrypted_token?: string
+          token_expiry?: string | null
+          status?: 'active' | 'expired' | 'error'
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       profiles: {
         Row: {
           id: string
@@ -215,6 +265,8 @@ export type Database = {
           industry: string | null
           tax_id: string | null
           company_size: string | null
+          total_tokens_used: number
+          token_limit: number
         }
         Insert: {
           id: string
@@ -228,6 +280,8 @@ export type Database = {
           industry?: string | null
           tax_id?: string | null
           company_size?: string | null
+          total_tokens_used?: number
+          token_limit?: number
         }
         Update: {
           id?: string
@@ -241,6 +295,8 @@ export type Database = {
           industry?: string | null
           tax_id?: string | null
           company_size?: string | null
+          total_tokens_used?: number
+          token_limit?: number
         }
       }
       premium_content_projects: {

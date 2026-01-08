@@ -60,6 +60,15 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
         if (!imageUrl) throw new Error("Failed to generate image URL");
 
+        // Record AI Usage IMMEDIATELY after generation
+        await recordAIUsageAction(
+            5000,
+            engine === 'gemini' ? 'imagen-4' : 'flux-pro',
+            'Image Generation',
+            0,
+            0
+        );
+
         // 4. PRESERVE RAW AS BACKGROUND (Crucial for later edits)
         // We do this first to ensure we have a fallback, but we'll update everything else at the end
         await (supabase.from('content_queue') as any)
@@ -116,14 +125,16 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
         if (finalError) throw finalError;
 
-        // Record AI Usage (Fixed cost for images)
-        await recordAIUsageAction(
-            5000,
-            engine === 'gemini' ? 'imagen-4' : 'flux-pro',
-            'Image Generation',
-            0,
-            0
-        );
+        // 7. RECORD VISION USAGE if analysis was performed
+        if (overlayStyle && !params?.customStyle) {
+            await recordAIUsageAction(
+                1500,
+                'gemini-1.5-flash-vision',
+                'Smart Placement analysis',
+                0,
+                0
+            );
+        }
 
         return { success: true, url: finalDisplayUrl };
     } catch (error: any) {

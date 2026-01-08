@@ -21,7 +21,16 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
         console.log("Fal.ai: Requesting image generation...");
 
         let enhancedPrompt = prompt;
-        if (params.style) enhancedPrompt = `[Style: ${params.style}] ${enhancedPrompt}`;
+        // Inject Visual DNA with extreme priority
+        const dnaNodes = [];
+        if (params.style) dnaNodes.push(`STYLE: ${params.style}`);
+        if (params.mood) dnaNodes.push(`MOOD: ${params.mood}`);
+        if (params.color_palette) dnaNodes.push(`COLOR PALETTE: ${params.color_palette}`);
+
+        if (dnaNodes.length > 0) {
+            enhancedPrompt = `[[VISUAL DNA: ${dnaNodes.join(' | ')}]]\n${enhancedPrompt}`;
+        }
+
         if (params.masterInstructions) enhancedPrompt = `[GLOBAL MASTER RULES: ${params.masterInstructions}] ${enhancedPrompt}`;
         if (params.imageText && !params.skipText) {
             const cleanText = params.imageText.toUpperCase().replace(/"/g, '').replace(/\*/g, '');

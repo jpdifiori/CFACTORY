@@ -10,6 +10,7 @@ interface CreatableSelectProps {
     onChange: (value: string) => void
     placeholder?: string
     className?: string
+    inputClassName?: string
 }
 
 export function CreatableSelect({
@@ -17,7 +18,8 @@ export function CreatableSelect({
     value,
     onChange,
     placeholder = "Select or type...",
-    className
+    className,
+    inputClassName
 }: CreatableSelectProps) {
     const [open, setOpen] = useState(false)
     const [inputValue, setInputValue] = useState('')
@@ -68,7 +70,10 @@ export function CreatableSelect({
             <div className="relative">
                 <input
                     type="text"
-                    className="w-full bg-secondary/50 border border-border rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 outline-none pr-10"
+                    className={cn(
+                        "w-full bg-secondary/50 border border-border rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 outline-none pr-10",
+                        inputClassName
+                    )}
                     placeholder={placeholder}
                     value={open ? inputValue : (value || inputValue)} // Use generic input value when typing, otherwise value
                     onChange={handleCustomInput}

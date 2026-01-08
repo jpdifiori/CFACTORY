@@ -7,6 +7,8 @@ import { ArrowLeft, Save, Sparkles, Paintbrush, Target, Loader2 } from 'lucide-r
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { CreatableSelect } from '@/components/ui/CreatableSelect'
+import { useLanguage } from '@/context/LanguageContext'
+import { useTitle } from '@/context/TitleContext'
 
 type Objective = Database['public']['Tables']['campaigns']['Row']['objective']
 type VisualStyle = Database['public']['Tables']['campaigns']['Row']['visual_style']
@@ -55,6 +57,9 @@ export default function EditCampaignPage() {
     const supabase = createClient()
     const projectId = params.id as string
     const campaignId = params.campaignId as string
+    const { t, lang } = useLanguage()
+    const { setTitle } = useTitle()
+    const [projectName, setProjectName] = useState('')
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -76,10 +81,23 @@ export default function EditCampaignPage() {
     const [tempPillar, setTempPillar] = useState('')
 
     useEffect(() => {
-        if (campaignId) {
+        if (campaignId && projectId) {
             fetchCampaign()
+            fetchProject()
         }
-    }, [campaignId])
+    }, [campaignId, projectId])
+
+    const fetchProject = async () => {
+        const { data } = await (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
+        if (data) setProjectName(data.app_name)
+    }
+
+    useEffect(() => {
+        if (formData.name) {
+            setTitle(`${projectName || '...'} / ${formData.name} (${t.projects.edit_title})`)
+        }
+        return () => setTitle('')
+    }, [projectName, formData.name, setTitle, t.projects.edit_title])
 
     const fetchCampaign = async () => {
         try {

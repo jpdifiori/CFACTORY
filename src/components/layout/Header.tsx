@@ -6,17 +6,20 @@ import { usePathname } from 'next/navigation'
 import { useSidebar } from '@/context/SidebarContext'
 import { Menu } from 'lucide-react'
 import { useLanguage } from '@/context/LanguageContext'
+import { useTitle } from '@/context/TitleContext'
 
 export function Header() {
     const pathname = usePathname()
     const { toggle } = useSidebar()
     const { t } = useLanguage()
+    const { title } = useTitle()
 
     // Simple breadcrumb logic
     const pathParts = pathname.split('/').filter(p => p)
     const lastPart = pathParts[pathParts.length - 1]
 
     const getPageName = () => {
+        if (title) return title
         if (!lastPart || lastPart === 'dashboard') return t.nav.dashboard
         if (lastPart === 'projects') return t.nav.projects
         if (lastPart === 'settings') return t.nav.settings

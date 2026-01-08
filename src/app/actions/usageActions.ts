@@ -13,7 +13,12 @@ export async function recordAIUsageAction(
 
     try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return { success: false, error: 'Not authenticated' }
+        if (!user) {
+            console.error('recordAIUsageAction: No user found')
+            return { success: false, error: 'Not authenticated' }
+        }
+
+        console.log(`[USAGE] Recording ${tokens} tokens for ${feature} (Model: ${model}) for user ${user.id}`)
 
         // 1. Update Profile total
         const { error: profileError } = await supabase.rpc('increment_user_tokens', {
@@ -22,22 +27,36 @@ export async function recordAIUsageAction(
         } as any)
 
         if (profileError) {
-            // Fallback if RPC doesn't exist yet, though RPC is safer for concurrency
-            const { data: profile } = await (supabase
+            console.warn('[USAGE] RPC increment_user_tokens failed, trying manual update:', profileError.message)
+
+            // Fallback if RPC doesn't exist yet
+            const { data: profile, error: fetchError } = await (supabase
                 .from('profiles')
                 .select('total_tokens_used')
                 .eq('id', user.id)
                 .single() as any)
 
-            const current = ((profile as any)?.total_tokens_used || 0) as number
-            await (supabase
-                .from('profiles') as any)
-                .update({ total_tokens_used: Number(current) + tokens } as any)
-                .eq('id', user.id)
+            if (fetchError) {
+                console.error('[USAGE] Failed to fetch profile for manual update:', fetchError.message)
+            } else {
+                const current = (profile?.total_tokens_used || 0) as number
+                const { error: updateError } = await (supabase
+                    .from('profiles') as any)
+                    .update({ total_tokens_used: Number(current) + tokens } as any)
+                    .eq('id', user.id)
+
+                if (updateError) {
+                    console.error('[USAGE] Manual update of tokens failed:', updateError.message)
+                } else {
+                    console.log(`[USAGE] Manual update success: ${current} -> ${current + tokens}`)
+                }
+            }
+        } else {
+            console.log('[USAGE] RPC update success')
         }
 
-        // 2. Log detailed usage
-        await (supabase
+        // 2. Log detailed usage (Don't let this block success of the operation)
+        const { error: logError } = await (supabase
             .from('ai_usage_logs') as any)
             .insert({
                 user_id: user.id,
@@ -48,9 +67,13 @@ export async function recordAIUsageAction(
                 feature_name: feature
             })
 
+        if (logError) {
+            console.error('[USAGE] Failed to insert usage log:', logError.message)
+        }
+
         return { success: true }
     } catch (error: any) {
-        console.error('Error recording AI usage:', error)
+        console.error('[USAGE] FATAL ERROR in recordAIUsageAction:', error)
         return { success: false, error: error.message }
     }
 }

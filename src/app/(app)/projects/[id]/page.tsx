@@ -16,6 +16,7 @@ import { triggerImageGenerationAction } from '@/app/actions/imageActions'
 import { autoFillScheduleAction } from '@/app/actions/scheduler'
 import { publishContentAction } from '@/app/actions/publish'
 import { useLanguage } from '@/context/LanguageContext'
+import { useTitle } from '@/context/TitleContext'
 
 export default function ProjectPage() {
     const params = useParams()
@@ -29,6 +30,7 @@ export default function ProjectPage() {
     const [profile, setProfile] = useState<any>(null)
 
     const { t, lang } = useLanguage()
+    const { setTitle } = useTitle()
 
     // UI State
     const [isGenerating, setIsGenerating] = useState(false)
@@ -136,8 +138,17 @@ export default function ProjectPage() {
             .single() as any)
 
         if (error) console.error('Error fetching project:', error)
-        if (data) setProject(data)
+        if (data) {
+            setProject(data)
+        }
     }
+
+    useEffect(() => {
+        if (project?.app_name) {
+            setTitle(project.app_name)
+        }
+        return () => setTitle('')
+    }, [project, setTitle])
 
     const fetchContentQueue = async () => {
         const { data: { user } } = await supabase.auth.getUser()

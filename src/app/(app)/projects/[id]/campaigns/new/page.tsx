@@ -12,6 +12,8 @@ import { StepIndicator } from '@/components/ui/StepIndicator'
 import { HelpTooltip } from '@/components/ui/HelpTooltip'
 import { MarketInsights } from '@/components/campaigns/MarketInsights'
 import { calculateStrategyAction, generateInstructionsAction } from '@/app/actions/strategy_actions'
+import { useTitle } from '@/context/TitleContext'
+import { useEffect } from 'react'
 
 type Objective = Database['public']['Tables']['campaigns']['Row']['objective']
 type VisualStyle = Database['public']['Tables']['campaigns']['Row']['visual_style']
@@ -55,12 +57,19 @@ const PALETTE_OPTIONS = [
     "Pastel Soft", "Dark Mode Neon", "Earth Tones", "Vibrant Pop"
 ]
 
+const VOICE_OPTIONS = [
+    "Professional", "Funny", "Urgent", "Educational", "Minimalist",
+    "Inspirational", "Sarcastic", "Empathetic", "Authoritative", "Bold"
+]
+
 export default function NewCampaignPage() {
     const router = useRouter()
     const params = useParams()
     const supabase = createClient()
     const projectId = params.id as string
     const { t, lang } = useLanguage()
+    const { setTitle } = useTitle()
+    const [projectName, setProjectName] = useState('')
 
     const [loading, setLoading] = useState(false)
 
@@ -86,10 +95,26 @@ export default function NewCampaignPage() {
         visual_style: 'Fotografia_Realista' as VisualStyle,
         color_palette: '',
         mood: '',
+        brand_voice: '',
         custom_copy_instructions: '',
         custom_visual_instructions: '',
         target_url: ''
     })
+
+    // Fetch project for title
+    useEffect(() => {
+        if (projectId) {
+            (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
+                .then(({ data }: any) => {
+                    if (data) setProjectName(data.app_name)
+                })
+        }
+    }, [projectId, supabase])
+
+    useEffect(() => {
+        setTitle(`${projectName || '...'} / ${t.new_campaign.title}`)
+        return () => setTitle('')
+    }, [projectName, setTitle, t.new_campaign.title])
 
     const handleAnalyzeMarket = async () => {
         if (!contextData.topic) return
@@ -454,6 +479,18 @@ export default function NewCampaignPage() {
                                         value={formData.cta}
                                         onChange={(val: string) => setFormData({ ...formData, cta: val })}
                                         placeholder={t.new_campaign.form.cta_placeholder}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center">
+                                        {t.projects.voice_label} <HelpTooltip text={{ description: "Define el tono de comunicación para esta campaña específica.", examples: "Profesional, Divertido, Urgente, Inspiracional..." }} />
+                                    </label>
+                                    <CreatableSelect
+                                        options={VOICE_OPTIONS}
+                                        value={formData.brand_voice || ''}
+                                        onChange={(val: string) => setFormData({ ...formData, brand_voice: val })}
+                                        placeholder={t.campaigns.voice_placeholder}
                                     />
                                 </div>
                             </div>

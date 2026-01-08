@@ -11,10 +11,36 @@ import { QuickEditor } from '@/components/content/QuickEditor'
 import { generateContentAction } from '@/app/actions/ai'
 import { triggerImageGenerationAction } from '@/app/actions/imageActions'
 import { useLanguage } from '@/context/LanguageContext'
+import { useTitle } from '@/context/TitleContext'
 import { IdeaGenerator } from '@/components/campaigns/IdeaGenerator'
 import { CampaignIdea } from '@/lib/ai/flows'
+import { CreatableSelect } from '@/components/ui/CreatableSelect'
+import { publishContentToSocialsAction } from '@/app/actions/publishActions'
 
 type ContentType = Database['public']['Tables']['content_queue']['Row']['content_type']
+
+// LOV Constants (Synced with NewCampaignPage)
+const STYLE_OPTIONS = [
+    { value: 'Fotografia_Realista', label: 'Fotografía Realista' },
+    { value: 'Ilustracion_3D', label: 'Ilustración 3D' },
+    { value: 'Minimalista', label: 'Estilo Minimalista (Apple)' },
+    { value: 'Cinematic_8k', label: 'Cinematic 8K' },
+]
+
+const MOOD_OPTIONS = [
+    "Luxury", "Energetic", "Cozy", "Professional", "Minimalist",
+    "Futuristic", "Nature-focused", "Industrial", "Playful", "Serene",
+    "Dark & Moody", "Bright & Airy"
+]
+
+const PALETTE_OPTIONS = [
+    "Pastel Soft", "Dark Mode Neon", "Earth Tones", "Vibrant Pop"
+]
+
+const VOICE_OPTIONS = [
+    "Professional", "Funny", "Urgent", "Educational", "Minimalist",
+    "Inspirational", "Sarcastic", "Empathetic", "Authoritative", "Bold"
+]
 
 export default function CampaignDetailPage() {
     const params = useParams()
@@ -23,6 +49,7 @@ export default function CampaignDetailPage() {
     const supabase = createClient()
     const router = useRouter()
     const { t, lang } = useLanguage()
+    const { setTitle } = useTitle()
 
     const [campaign, setCampaign] = useState<Database['public']['Tables']['campaigns']['Row'] | null>(null)
     const [project, setProject] = useState<any>(null)
@@ -33,9 +60,6 @@ export default function CampaignDetailPage() {
     const [genQuantity, setGenQuantity] = useState(5)
     const [genLanguage, setGenLanguage] = useState<'Ingles' | 'Español'>('Español')
     const [genSize, setGenSize] = useState('square_hd')
-    const [genStyle, setGenStyle] = useState('Cinematic Photographic')
-    const [genSteps, setGenSteps] = useState(28)
-    const [showAdvanced, setShowAdvanced] = useState(false)
     const [imageEngine, setImageEngine] = useState<'fal' | 'gemini'>('fal')
     const [isGenerating, setIsGenerating] = useState(false)
     const [lastGenTime, setLastGenTime] = useState<number | null>(null)
@@ -46,6 +70,13 @@ export default function CampaignDetailPage() {
     const [isSavingConfig, setIsSavingConfig] = useState(false)
     const [showPromptPreview, setShowPromptPreview] = useState(false)
     const [skipImageText, setSkipImageText] = useState(false)
+    const [success, setSuccess] = useState<string | null>(null)
+
+    // VISUAL DNA States
+    const [vStyle, setVStyle] = useState('Fotografia_Realista')
+    const [vMood, setVMood] = useState('Professional')
+    const [vPalette, setVPalette] = useState('colores modernos, alegres, desafiantes')
+    const [vVoice, setVVoice] = useState('Professional')
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['Instagram'])
     const [resourceTab, setResourceTab] = useState('Todo')
 
@@ -79,12 +110,41 @@ export default function CampaignDetailPage() {
         return () => clearInterval(interval)
     }, [items])
 
+    // Manage Dynamic Header Title
+    useEffect(() => {
+        if (campaign) {
+            if (project) {
+                setTitle(`${project.app_name} / ${campaign.name}`)
+            } else {
+                setTitle(campaign.name)
+            }
+        }
+
+        // Reset title on unmount
+        return () => setTitle('')
+    }, [campaign, project, setTitle])
+
+    // Auto-hide success message
+    useEffect(() => {
+        if (success) {
+            const timer = setTimeout(() => setSuccess(null), 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [success])
+
     const fetchCampaign = async () => {
         const { data } = await (supabase.from('campaigns').select('*').eq('id', campaignId).single() as any)
         if (data) {
             setCampaign(data)
             setCustomCopy(data.custom_copy_instructions || '')
             setCustomVisual(data.custom_visual_instructions || '')
+            if (data.visual_style) setVStyle(data.visual_style)
+            if (data.mood) setVMood(data.mood)
+            if (data.color_palette) setVPalette(data.color_palette)
+            if (data.brand_voice) setVVoice(data.brand_voice)
+
+            // Set initial Title
+            setTitle(data.name)
         }
     }
 
@@ -131,16 +191,33 @@ export default function CampaignDetailPage() {
         if (triggerGen && imagePrompt) {
             triggerImageGenerationAction(id, imagePrompt, {
                 image_size: targetSize || genSize,
-                num_inference_steps: genSteps,
-                style: genStyle,
+                num_inference_steps: 28,
+                style: vStyle, // Use Visual DNA
+                mood: vMood,
+                color_palette: vPalette,
                 imageText: overlayText || newContent.short_image_text,
-                customText: overlayText,   // EXPLICIT CUSTOM TEXT
-                customStyle: overlayStyle, // EXPLICIT CUSTOM STYLE
+                customText: overlayText,
+                customStyle: overlayStyle,
                 masterInstructions: customVisual,
                 language: genLanguage,
                 engine: imageEngine,
-                skipText: skipText !== undefined ? skipText : skipImageText // PREFER EXPLICIT SKIP
+                skipText: skipText !== undefined ? skipText : skipImageText
             })
+        }
+    }
+
+    const handlePublish = async (itemId: string) => {
+        try {
+            const res = await publishContentToSocialsAction(itemId)
+            if (res.success) {
+                setSuccess(`${t.common.success}: Published to ${res.targetsCount} platforms`)
+                // Optimistic update
+                setItems(prev => prev.map(item => item.id === itemId ? { ...item, status: 'Published' } : item))
+            } else {
+                setError(res.error || 'Publishing failed')
+            }
+        } catch (error: any) {
+            setError(error.message || 'Publishing failed')
         }
     }
 
@@ -180,9 +257,10 @@ export default function CampaignDetailPage() {
                     objective: campaign.objective,
                     pillars: campaign.pillars,
                     mainCTA: campaign.cta,
-                    visualStyle: campaign.visual_style,
-                    mood: campaign.mood,
-                    colorPalette: campaign.color_palette,
+                    visualStyle: vStyle,
+                    mood: vMood,
+                    colorPalette: vPalette,
+                    brandVoice: vVoice,
                     custom_copy_instructions: customCopy,
                     custom_visual_instructions: customVisual
                 },
@@ -227,8 +305,10 @@ export default function CampaignDetailPage() {
                         engine: imageEngine,
                         language: genLanguage,
                         masterInstructions: customVisual,
-                        num_inference_steps: genSteps,
-                        style: genStyle,
+                        num_inference_steps: 28,
+                        style: vStyle,
+                        mood: vMood,
+                        color_palette: vPalette,
                         imageText: output.image_title,
                         imageSubtitle: output.image_subtitle,
                         skipText: skipImageText
@@ -254,7 +334,11 @@ export default function CampaignDetailPage() {
                 .from('campaigns') as any)
                 .update({
                     custom_copy_instructions: customCopy,
-                    custom_visual_instructions: customVisual
+                    custom_visual_instructions: customVisual,
+                    visual_style: vStyle,
+                    mood: vMood,
+                    color_palette: vPalette,
+                    brand_voice: vVoice
                 })
                 .eq('id', campaignId)
 
@@ -263,12 +347,16 @@ export default function CampaignDetailPage() {
             setCampaign(prev => prev ? {
                 ...prev,
                 custom_copy_instructions: customCopy,
-                custom_visual_instructions: customVisual
+                custom_visual_instructions: customVisual,
+                visual_style: vStyle as any,
+                mood: vMood,
+                color_palette: vPalette,
+                brand_voice: vVoice
             } : null)
-            alert("Campaign Master Prompts updated successfully!")
+            setSuccess(t.campaigns.save_success)
         } catch (e: any) {
             console.error("Error saving campaign config:", e)
-            alert(`Failed to save configuration: ${e.message}`)
+            setError(`${t.common.error}: ${e.message}`)
         } finally {
             setIsSavingConfig(false)
         }
@@ -303,16 +391,22 @@ export default function CampaignDetailPage() {
                     <button onClick={() => setError(null)} className="text-red-400 hover:text-white">×</button>
                 </div>
             )}
+
+            {/* Success Display */}
+            {success && (
+                <div className="bg-green-500/20 border border-green-500/50 p-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    <p className="text-xs font-bold text-green-200 uppercase tracking-widest">{success}</p>
+                    <button onClick={() => setSuccess(null)} className="ml-auto text-green-400 hover:text-white">×</button>
+                </div>
+            )}
             {/* Nav */}
             <div className="flex items-center justify-between">
                 <Link href={`/projects/${projectId}`} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group">
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     {t.projects.back_to_project}
                 </Link>
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                    <span className="text-[10px] uppercase font-bold text-green-400 tracking-tighter">{t.campaigns.engine_label}: Gemini 1.5 Flash</span>
-                </div>
+                <div />
             </div>
 
             {/* Campaign Identity Section */}
@@ -342,27 +436,101 @@ export default function CampaignDetailPage() {
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3" /> {t.campaigns.master_directives} (Copy)
-                                </label>
-                                <textarea
-                                    className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
-                                    placeholder="Add custom directives for text..."
-                                    value={customCopy}
-                                    onChange={(e) => setCustomCopy(e.target.value)}
-                                />
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3" /> {t.campaigns.master_directives} (Copy)
+                                    </label>
+                                    <textarea
+                                        className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
+                                        placeholder="Add custom directives for text..."
+                                        value={customCopy}
+                                        onChange={(e) => setCustomCopy(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                        <Paintbrush className="w-3 h-3" /> {t.campaigns.master_directives} (Visual)
+                                    </label>
+                                    <textarea
+                                        className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
+                                        placeholder="Add custom directives for images..."
+                                        value={customVisual}
+                                        onChange={(e) => setCustomVisual(e.target.value)}
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                    <Paintbrush className="w-3 h-3" /> {t.campaigns.master_directives} (Visual)
-                                </label>
-                                <textarea
-                                    className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
-                                    placeholder="Add custom directives for images..."
-                                    value={customVisual}
-                                    onChange={(e) => setCustomVisual(e.target.value)}
-                                />
+
+                            {/* VISUAL DNA PANEL */}
+                            <div className="bg-black/20 border border-white/5 rounded-2xl p-6 space-y-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-1.5 h-4 bg-primary rounded-full" />
+                                    <h4 className="text-xs font-black text-white uppercase tracking-widest">{t.campaigns.visual_dna}</h4>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t.campaigns.base_style}</label>
+                                            <select
+                                                value={vStyle}
+                                                onChange={(e) => setVStyle(e.target.value)}
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white focus:ring-1 focus:ring-primary/50 outline-none appearance-none cursor-pointer"
+                                            >
+                                                {STYLE_OPTIONS.map(opt => (
+                                                    <option key={opt.value} className="bg-gray-900" value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t.campaigns.voice_label}</label>
+                                            <CreatableSelect
+                                                options={VOICE_OPTIONS}
+                                                value={vVoice}
+                                                onChange={(val: string) => setVVoice(val)}
+                                                placeholder={t.campaigns.voice_placeholder}
+                                                className="!bg-transparent !border-none !p-0 !min-h-0"
+                                                inputClassName="!bg-black/40 !border-white/10 !rounded-lg !px-3 !py-1.5 !text-[11px] !text-white"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t.campaigns.mood_label}</label>
+                                            <CreatableSelect
+                                                options={MOOD_OPTIONS}
+                                                value={vMood}
+                                                onChange={(val: string) => setVMood(val)}
+                                                placeholder={t.campaigns.mood_label}
+                                                className="!bg-transparent !border-none !p-0 !min-h-0"
+                                                inputClassName="!bg-black/40 !border-white/10 !rounded-lg !px-3 !py-1.5 !text-[11px] !text-white"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">{t.campaigns.palette_label}</label>
+                                            <CreatableSelect
+                                                options={PALETTE_OPTIONS}
+                                                value={vPalette}
+                                                onChange={(val: string) => setVPalette(val)}
+                                                placeholder={t.campaigns.palette_label}
+                                                className="!bg-transparent !border-none !p-0 !min-h-0"
+                                                inputClassName="!bg-black/40 !border-white/10 !rounded-lg !px-3 !py-1.5 !text-[11px] !text-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <button
+                                            onClick={() => setSkipImageText(!skipImageText)}
+                                            className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${skipImageText ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
+                                        >
+                                            <span className="text-[9px] font-black uppercase tracking-widest">{t.campaigns.no_text_label}</span>
+                                            <div className={`w-8 h-4 rounded-full relative transition-all ${skipImageText ? 'bg-primary' : 'bg-gray-600'}`}>
+                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${skipImageText ? 'left-4.5' : 'left-0.5'}`} />
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -404,7 +572,7 @@ export default function CampaignDetailPage() {
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-white tracking-tighter uppercase">{t.campaigns.generation_hub}</h3>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{t.campaigns.processing} Optimized for Flash 1.5</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{t.campaigns.processing}</p>
                             </div>
                         </div>
 
@@ -544,67 +712,8 @@ export default function CampaignDetailPage() {
                                 </div>
                             )}
 
-                            {/* Advanced Toggle */}
-                            <button
-                                onClick={() => setShowAdvanced(!showAdvanced)}
-                                className="text-[10px] font-black text-gray-400 hover:text-white uppercase tracking-widest flex items-center justify-center gap-2 transition-colors py-2 border-b border-dashed border-white/10"
-                            >
-                                {showAdvanced ? 'Hide' : 'Show'} Advanced Visual Settings {showAdvanced ? '−' : '+'}
-                            </button>
                         </div>
                     </div>
-
-                    {/* Advanced Panel (Full Width Expandable) */}
-                    {showAdvanced && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                    🎨 {t.campaigns.aesthetic_style}
-                                </label>
-                                <select
-                                    value={genStyle}
-                                    onChange={(e) => setGenStyle(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl text-xs p-3 text-white outline-none focus:ring-1 focus:ring-primary/50"
-                                >
-                                    <option value="Cinematic Photographic">CINEMATIC PHOTO</option>
-                                    <option value="Minimalist Graphic Design">MINIMALIST GRAPHIC</option>
-                                    <option value="3D Render / Unreal Engine 5">3D RENDER</option>
-                                    <option value="Cyberpunk / Neon">CYBERPUNK</option>
-                                    <option value="Vintage Film / 35mm">VINTAGE FILM</option>
-                                    <option value="Vector Illustration">VECTOR ART</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                    <span>⚙️ {t.campaigns.quality_label}</span>
-                                    <span className="text-primary font-mono">{genSteps} steps</span>
-                                </div>
-                                <input
-                                    type="range" min="15" max="50" step="1"
-                                    value={genSteps}
-                                    onChange={(e) => setGenSteps(parseInt(e.target.value))}
-                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                                />
-                            </div>
-
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                    🛡️ Visual Constraints
-                                </label>
-                                <button
-                                    onClick={() => setSkipImageText(!skipImageText)}
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${skipImageText ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'}`}
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">{t.campaigns.no_text_label}</span>
-                                    <div className={`w-8 h-4 rounded-full relative transition-all ${skipImageText ? 'bg-primary' : 'bg-gray-600'}`}>
-                                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${skipImageText ? 'left-4.5' : 'left-0.5'}`} />
-                                    </div>
-                                </button>
-                                <input type="hidden" value="fal" />
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -654,6 +763,7 @@ export default function CampaignDetailPage() {
                                         setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
                                         (supabase.from('content_queue') as any).update({ status }).eq('id', id).then()
                                     }}
+                                    onPublish={handlePublish}
                                 />
                             </div>
                         ))}
@@ -701,7 +811,7 @@ export default function CampaignDetailPage() {
                                 <section className="space-y-4">
                                     <div className="flex items-center gap-2">
                                         <Sparkles className="w-4 h-4 text-primary" />
-                                        <h4 className="text-xs font-black text-white uppercase tracking-widest">{t.campaigns.social_post} Logic (Gemini)</h4>
+                                        <h4 className="text-xs font-black text-white uppercase tracking-widest">{t.campaigns.social_post} Logic</h4>
                                     </div>
                                     <div className="bg-black/60 rounded-2xl p-6 font-mono text-[11px] leading-relaxed text-gray-400 border border-white/5">
                                         <p className="mb-4 text-primary font-bold">--- {t.campaigns.system_role} ---</p>
@@ -730,16 +840,17 @@ export default function CampaignDetailPage() {
                                 <section className="space-y-4 pb-8">
                                     <div className="flex items-center gap-2">
                                         <Paintbrush className="w-4 h-4 text-purple-400" />
-                                        <h4 className="text-xs font-black text-white uppercase tracking-widest">Visual Art Director Logic (Fal.ai Flux)</h4>
+                                        <h4 className="text-xs font-black text-white uppercase tracking-widest">Visual Art Director Logic</h4>
                                     </div>
                                     <div className="bg-black/60 rounded-2xl p-6 font-mono text-[11px] leading-relaxed text-gray-400 border border-white/5">
                                         <p className="mb-4 text-purple-400 font-bold">--- {t.campaigns.system_role} ---</p>
                                         <p>Role: Professional Creative Director & High-End Photographer.</p>
 
-                                        <p className="mt-4 mb-2 text-purple-400 font-bold">--- VISUAL DNA ---</p>
-                                        <p>Base Style: <span className="text-white">{campaign?.visual_style}</span></p>
-                                        <p>Mood: <span className="text-white">{campaign?.mood}</span></p>
-                                        <p>Palette: <span className="text-white">{campaign?.color_palette}</span></p>
+                                        <p className="mt-4 mb-2 text-purple-400 font-bold">--- CAMPAIGN DNA ---</p>
+                                        <p>Base Style: <span className="text-white">{vStyle}</span></p>
+                                        <p>Voice: <span className="text-white">{vVoice}</span></p>
+                                        <p>Mood: <span className="text-white">{vMood}</span></p>
+                                        <p>Palette: <span className="text-white">{vPalette}</span></p>
 
                                         <p className="mt-4 mb-2 text-purple-400 font-bold">--- PHOTOGRAPHIC SPECS (AUTO-INJECTED) ---</p>
                                         <p className="text-white/80 italic">"Ultra-high definition, 8k, photorealistic textures, cinematic quality. Professional studio setup (Rim lighting, softbox). 85mm f/1.8 optics. Sharp focus, deep depth of field."</p>

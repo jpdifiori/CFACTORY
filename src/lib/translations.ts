@@ -12,6 +12,42 @@ export interface Translation {
         settings: string
         premium_forge: string
         new_campaign: string
+        social_hub: string
+        vault: string
+    }
+    connections: {
+        title: string
+        subtitle: string
+        disconnected: string
+        no_account: string
+        test_bridge: string
+        connect_account: string
+        safety_zones_title: string
+        safety_zones_desc: string
+        bottom_clearance: string
+        top_clearance: string
+        side_clearance: string
+        apply_context: string
+        encryption_notice: string
+        modal: {
+            sync: string
+            handshake: string
+            account_label: string
+            account_placeholder: string
+            platform_id_label: string
+            access_token_label: string
+            how_to: string
+            help: string
+            authorize: string
+            loading: string
+        }
+        platforms: {
+            instagram: { id_label: string, token_label: string, id_help: string, token_help: string }
+            facebook: { id_label: string, token_label: string, id_help: string, token_help: string }
+            linkedin: { id_label: string, token_label: string, id_help: string, token_help: string }
+            twitter: { id_label: string, token_label: string, id_help: string, token_help: string }
+            tiktok: { id_label: string, token_label: string, id_help: string, token_help: string }
+        }
     }
     new_campaign: {
         title: string
@@ -250,6 +286,13 @@ export interface Translation {
         aesthetic_style: string
         quality_label: string
         assets_title: string
+        visual_dna: string
+        base_style: string
+        mood_label: string
+        palette_label: string
+        voice_label: string
+        voice_placeholder: string
+        save_success: string
         ready_activation: string
         ready_activation_desc: string
         inspecting_logic: string
@@ -300,6 +343,7 @@ export interface Translation {
         publish: string
         download: string
         copy: string
+        error: string
         all: string
         search: string
         no_data: string
@@ -364,7 +408,68 @@ export const translations: Record<Language, Translation> = {
             projects: "Projects",
             settings: "Settings",
             premium_forge: "Premium Forge",
-            new_campaign: "Design Campaign"
+            new_campaign: "Design Campaign",
+            social_hub: "Social Hub",
+            vault: "Security Vault"
+        },
+        connections: {
+            title: "Project Connections",
+            subtitle: "Manage your social platform credentials and safety configurations.",
+            disconnected: "Disconnected",
+            no_account: "No account linked yet",
+            test_bridge: "Test Bridge",
+            connect_account: "Connect Account",
+            safety_zones_title: "Safety Zones",
+            safety_zones_desc: "Define protection areas for your brand. AI will respect these zones to avoid overlapping with platform UI elements.",
+            bottom_clearance: "Bottom Clearance (UI)",
+            top_clearance: "Top Area (Logo)",
+            side_clearance: "Sides Margin",
+            apply_context: "Apply Global Context",
+            encryption_notice: "All credentials are encrypted client-side and stored in our secure vault. We never store plain-text access tokens.",
+            modal: {
+                sync: "Sync",
+                handshake: "Secure Handshake",
+                account_label: "Account Name / User",
+                account_placeholder: "@your_brand",
+                platform_id_label: "Platform / Page ID",
+                access_token_label: "Access Token / API Key",
+                how_to: "How to get this?",
+                help: "Help",
+                authorize: "Authorize",
+                loading: "Loading Vault..."
+            },
+            platforms: {
+                instagram: {
+                    id_label: "Page ID / Business ID",
+                    token_label: "Long-lived Access Token",
+                    id_help: "Found in Business Manager > Page Settings > General",
+                    token_help: "Generate text token via Graph API Explorer"
+                },
+                facebook: {
+                    id_label: "Page ID",
+                    token_label: "Page Access Token",
+                    id_help: "Go to your Page > About > transparency",
+                    token_help: "Requires pages_manage_posts permission"
+                },
+                linkedin: {
+                    id_label: "Organization URN (numbers only)",
+                    token_label: "OAuth 2.0 Access Token",
+                    id_help: "Check URL when logged as admin: /company/[12345]",
+                    token_help: "Valid for 60 days standard"
+                },
+                twitter: {
+                    id_label: "API Key",
+                    token_label: "API Secret Key",
+                    id_help: "Developer Portal > Projects > Keys and Tokens",
+                    token_help: "Keep this secret!"
+                },
+                tiktok: {
+                    id_label: "Client Key",
+                    token_label: "Client Secret",
+                    id_help: "TikTok for Developers > My Apps",
+                    token_help: "Used for Oauth handshake"
+                }
+            }
         },
         new_campaign: {
             title: "Design New Campaign",
@@ -689,6 +794,13 @@ export const translations: Record<Language, Translation> = {
             aesthetic_style: "Aesthetic Style",
             quality_label: "Inference Quality",
             assets_title: "CAMPAIGN ASSETS",
+            visual_dna: "VISUAL DNA",
+            base_style: "Base Style",
+            mood_label: "Mood / Vibe",
+            palette_label: "Color Palette",
+            voice_label: "Brand Voice",
+            voice_placeholder: "Select or type a custom brand voice...",
+            save_success: "Campaign configuration saved successfully!",
             ready_activation: "Ready for Activation",
             ready_activation_desc: "Select content type and quantity above to populate this campaign.",
             inspecting_logic: "Inspecting live logic for",
@@ -739,6 +851,7 @@ export const translations: Record<Language, Translation> = {
             publish: "Publish",
             download: "Download",
             copy: "Copy",
+            error: "Error",
             all: "All",
             search: "Search...",
             no_data: "No items found",
@@ -801,7 +914,68 @@ export const translations: Record<Language, Translation> = {
             projects: "Proyectos",
             settings: "Configuración",
             premium_forge: "Premium Forge",
-            new_campaign: "Diseñar Campaña"
+            new_campaign: "Diseñar Campaña",
+            social_hub: "Social Hub",
+            vault: "Vault de Seguridad"
+        },
+        connections: {
+            title: "Conexiones del Proyecto",
+            subtitle: "Gestiona tus credenciales sociales y configuraciones de seguridad.",
+            disconnected: "Desconectado",
+            no_account: "Sin cuenta vinculada",
+            test_bridge: "Probar Conexión",
+            connect_account: "Conectar Cuenta",
+            safety_zones_title: "Zonas de Seguridad",
+            safety_zones_desc: "Define áreas de protección para tu marca. La IA respetará estas zonas para evitar solapamientos con elementos de interfaz.",
+            bottom_clearance: "Margen Inferior (UI)",
+            top_clearance: "Área Superior (Logo)",
+            side_clearance: "Márgenes Laterales",
+            apply_context: "Aplicar Contexto Global",
+            encryption_notice: "Todas las credenciales se cifran del lado del cliente y se guardan en nuestra bóveda segura. Nunca almacenamos tokens en texto plano.",
+            modal: {
+                sync: "Sincronizar",
+                handshake: "Enlace Seguro",
+                account_label: "Nombre de Cuenta / Usuario",
+                account_placeholder: "@tu_marca",
+                platform_id_label: "ID de Plataforma / Página",
+                access_token_label: "Token de Acceso / API Key",
+                how_to: "¿Cómo obtener esto?",
+                help: "Ayuda",
+                authorize: "Autorizar",
+                loading: "Cargando Bóveda..."
+            },
+            platforms: {
+                instagram: {
+                    id_label: "ID de Página / Business ID",
+                    token_label: "Token de Acceso (Long-lived)",
+                    id_help: "En Business Manager > Configuración de Página > General",
+                    token_help: "Generar token de texto vía Graph API Explorer"
+                },
+                facebook: {
+                    id_label: "ID de Página",
+                    token_label: "Token de Acceso de Página",
+                    id_help: "Ir a tu Página > Información > Transparencia",
+                    token_help: "Requiere permiso pages_manage_posts"
+                },
+                linkedin: {
+                    id_label: "URN de Organización (solo números)",
+                    token_label: "Token de Acceso OAuth 2.0",
+                    id_help: "Ver URL al entrar como admin: /company/[12345]",
+                    token_help: "Válido por 60 días estándar"
+                },
+                twitter: {
+                    id_label: "API Key",
+                    token_label: "API Secret Key",
+                    id_help: "Developer Portal > Projects > Keys and Tokens",
+                    token_help: "¡Mantén esto en secreto!"
+                },
+                tiktok: {
+                    id_label: "Client Key",
+                    token_label: "Client Secret",
+                    id_help: "TikTok for Developers > My Apps",
+                    token_help: "Usado para el handshake Oauth"
+                }
+            }
         },
         new_campaign: {
             title: "Diseñar Nueva Campaña",
@@ -1126,6 +1300,13 @@ export const translations: Record<Language, Translation> = {
             aesthetic_style: "Estilo Estético",
             quality_label: "Calidad de Inferencia",
             assets_title: "RECURSOS DE CAMPAÑA",
+            visual_dna: "ADN VISUAL",
+            base_style: "Estilo Base",
+            mood_label: "Mood / Vibe",
+            palette_label: "Paleta de Colores",
+            voice_label: "Voz de Marca",
+            voice_placeholder: "Selecciona o escribe el tono de voz...",
+            save_success: "¡Configuración de campaña guardada con éxito!",
             ready_activation: "Listo para Activación",
             ready_activation_desc: "Selecciona tipo y cantidad arriba para poblar esta campaña.",
             inspecting_logic: "Inspeccionando lógica en vivo para",
@@ -1176,6 +1357,7 @@ export const translations: Record<Language, Translation> = {
             publish: "Publicar",
             download: "Descargar",
             copy: "Copiar",
+            error: "Error",
             all: "Todo",
             search: "Buscar...",
             no_data: "No hay datos",
