@@ -4,65 +4,79 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-    LayoutDashboard, Plus, Play, ScrollText,
-    Layers, ChevronDown, CheckCircle2, AlertCircle,
+    Plus, Play, ScrollText,
+    Layers, ChevronDown, CheckCircle2,
     ArrowRight, Loader2, Sparkles, Zap, Filter
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
-import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
 import Link from 'next/link'
+import { Database } from '@/types/database.types'
+
+type Project = Database['public']['Tables']['project_master']['Row']
+type SocialConnection = Database['public']['Tables']['social_connections']['Row']
+type ContentItem = Database['public']['Tables']['content_queue']['Row'] & {
+    campaigns: { name: string | null } | null
+}
 
 export default function HubPage() {
     const params = useParams()
     const projectId = params.id as string
     const supabase = createClient()
     const router = useRouter()
-    const { t } = useLanguage()
     const { setTitle } = useTitle()
 
     const [loading, setLoading] = useState(true)
-    const [project, setProject] = useState<any>(null)
-    const [projects, setProjects] = useState<any[]>([])
-    const [connections, setConnections] = useState<any[]>([])
-    const [recentContent, setRecentContent] = useState<any[]>([])
+    const [project, setProject] = useState<Project | null>(null)
+    const [projects, setProjects] = useState<Pick<Project, 'id' | 'app_name'>[]>([])
+    const [connections, setConnections] = useState<SocialConnection[]>([])
+    const [recentContent, setRecentContent] = useState<ContentItem[]>([])
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false)
 
     useEffect(() => {
+        const fetchAllProjects = async () => {
+            const { data } = await supabase.from('project_master').select('id, app_name').order('app_name')
+            if (data) setProjects(data)
+        }
+
+        const fetchHubData = async () => {
+            setLoading(true)
+            try {
+                const projPromise = supabase.from('project_master').select('*').eq('id', projectId).single()
+                const connPromise = supabase.from('social_connections').select('*').eq('project_id', projectId)
+                const contPromise = supabase.from('content_queue')
+                    .select('*, campaigns(name)')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false })
+                    .limit(5)
+
+                const [projRes, connRes, contRes] = await Promise.all([projPromise, connPromise, contPromise])
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const projResAny = projRes as any
+                if (projResAny.error) throw projResAny.error
+                if (projResAny.data) setProject(projResAny.data as Project)
+
+                if (connRes.data) setConnections(connRes.data as SocialConnection[])
+
+                // For the join query, we need to be careful with the type
+                if (contRes.data) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    setRecentContent(contRes.data as any as ContentItem[])
+                }
+            } catch (error) {
+                console.error('Error fetching hub data:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
         setTitle('Smart Dashboard')
         fetchAllProjects()
         if (projectId) {
             fetchHubData()
         }
-    }, [projectId])
-
-    const fetchAllProjects = async () => {
-        const { data } = await supabase.from('project_master').select('id, app_name').order('app_name')
-        if (data) setProjects(data)
-    }
-
-    const fetchHubData = async () => {
-        setLoading(true)
-        try {
-            const [projRes, connRes, contRes] = await Promise.all([
-                supabase.from('project_master').select('*').eq('id', projectId).single() as any,
-                supabase.from('social_connections').select('*').eq('project_id', projectId) as any,
-                supabase.from('content_queue')
-                    .select('*, campaigns(name)')
-                    .eq('project_id', projectId)
-                    .order('created_at', { ascending: false })
-                    .limit(5) as any
-            ])
-
-            if (projRes.data) setProject(projRes.data)
-            if (connRes.data) setConnections(connRes.data)
-            if (contRes.data) setRecentContent(contRes.data)
-        } catch (error) {
-            console.error('Error fetching hub data:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
+    }, [projectId, setTitle, supabase])
 
     const handleProjectSwitch = (id: string) => {
         setIsSwitcherOpen(false)
@@ -242,7 +256,7 @@ export default function HubPage() {
                                             <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
                                                 <td className="px-8 py-6">
                                                     <div>
-                                                        <p className="font-bold text-white mb-0.5 line-clamp-1">{(item.gemini_output as any)?.title || 'Untitled Post'}</p>
+                                                        <p className="font-bold text-white mb-0.5 line-clamp-1">{(item.gemini_output as { title?: string })?.title || 'Untitled Post'}</p>
                                                         <p className="text-[10px] font-medium text-gray-600 truncate">{item.campaigns?.name || 'Quick Direct'}</p>
                                                     </div>
                                                 </td>
