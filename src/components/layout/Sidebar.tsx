@@ -21,7 +21,7 @@ export function Sidebar() {
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [projects, setProjects] = useState<any[]>([])
-    const [usage, setUsage] = useState({ used: 0, limit: 100000 })
+    const [usage, setUsage] = useState({ used: 0, limit: 10000000 })
 
     useEffect(() => {
         fetchData()
@@ -54,8 +54,8 @@ export function Sidebar() {
             setUsage({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 used: Number((profile as any).total_tokens_used || 0),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                limit: Number((profile as any).token_limit || 100000)
+                // Override limit if it's the old default (100k)
+                limit: Math.max(10000000, Number((profile as any).token_limit || 0))
             })
         }
     }
