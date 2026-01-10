@@ -7,7 +7,7 @@ import * as fal from "@fal-ai/serverless-client";
  * @returns The final image URL
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function generateImageFal(prompt: string, params: any = {}): Promise<string> {
+export async function generateImageFal(prompt: string, params: Record<string, any> = {}): Promise<string> {
     const falKey = process.env.FAL_KEY || process.env.NEXT_PUBLIC_FAL_KEY;
 
     if (!falKey) {
@@ -48,8 +48,11 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
 
         console.log("Fal.ai: Final Augmented Prompt:", enhancedPrompt);
 
+        interface FalResult {
+            images?: { url: string }[];
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result: any = await fal.subscribe("fal-ai/flux/dev", {
+        const result = await fal.subscribe("fal-ai/flux/dev", {
             input: {
                 prompt: enhancedPrompt,
                 image_size: params.image_size || "square_hd",
@@ -60,7 +63,7 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
                 enable_safety_checker: true,
             },
             pollInterval: 2000,
-        });
+        }) as unknown as FalResult;
 
         if (result.images && result.images.length > 0) {
             console.log("Fal.ai: Image generated successfully!");
@@ -69,8 +72,9 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
 
         throw new Error("Fal.ai: No image returned from API");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Fal.ai Error:", error);
-        throw new Error(`Fal.ai Image Error: ${error.message || 'Unknown'}`);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Fal.ai Image Error: ${message}`);
     }
 }

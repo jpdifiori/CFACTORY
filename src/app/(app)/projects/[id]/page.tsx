@@ -199,10 +199,8 @@ export default function ProjectPage() {
                     niche: activeCampaign.topic || project.niche_vertical,
                     targetAudience: activeCampaign.target_orientation || project.target_audience,
                     brandVoice: project.brand_voice,
-                    description: project.description,
-                    usp: project.usp,
-                    companyName: project.app_name,
                     offering: project.description,
+                    companyName: project.app_name,
                     differential: activeCampaign.differential || project.usp,
                     problemSolved: activeCampaign.problem_solved || project.problem_solved,
                     strategyContext: {
@@ -217,11 +215,11 @@ export default function ProjectPage() {
                     name: activeCampaign.name,
                     objective: activeCampaign.objective,
                     pillars: activeCampaign.pillars,
-                    mainCTA: activeCampaign.cta,
-                    visualStyle: activeCampaign.visual_style,
+                    cta: activeCampaign.cta,
+                    visual_style: activeCampaign.visual_style,
                     mood: activeCampaign.mood,
-                    colorPalette: activeCampaign.color_palette
-                },
+                    color_palette: activeCampaign.color_palette
+                } as any,
                 config: {
                     count: quantity,
                     contentType: type,

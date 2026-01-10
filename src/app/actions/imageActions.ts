@@ -4,12 +4,41 @@ import { generateImageFal } from '@/lib/ai/fal'
 import { generateImageGemini } from '@/lib/ai/gemini'
 import { createClient } from '@/utils/supabase/server'
 import { recordAIUsageAction } from './usageActions'
+import { Database } from '@/types/database.types'
+import { EditorStyle } from '@/components/content/SmartTextEditor';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+type ContentItem = Database['public']['Tables']['content_queue']['Row']
+type ContentUpdate = Database['public']['Tables']['content_queue']['Update']
+type Json = Database['public']['Tables']['content_queue']['Row']['gemini_output'] // safe way to get Json type
+
+// Helper interface to allow chaining .eq().eq() without 'any' or 'never' issues
+interface QueryBuilderChain {
+    eq: (col: string, val: string) => QueryBuilderChain;
+    then: <TResult1 = { error: unknown | null }, TResult2 = never>(
+        onfulfilled?: ((value: { error: unknown | null }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null | undefined
+    ) => Promise<TResult1 | TResult2>;
+}
+
+interface SafeContentQueue {
+    update: (data: ContentUpdate) => QueryBuilderChain
+}
+
+interface ImageGenerationParams {
+    engine?: 'fal' | 'gemini'
+    customText?: string
+    imageText?: string
+    customStyle?: EditorStyle
+    skipText?: boolean
+    [key: string]: unknown
+}
 
 /**
  * Triggers image generation for a content item and updates the database
  */
-export async function triggerImageGenerationAction(itemId: string, prompt: string, params?: any) {
-    const supabase = await createClient();
+export async function triggerImageGenerationAction(itemId: string, prompt: string, params?: ImageGenerationParams) {
+    const supabase = (await createClient()) as SupabaseClient<Database>;
 
     try {
         // 1. Authenticate user
@@ -30,10 +59,11 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
             const base64Data = await generateImageGemini(prompt, params);
             if (base64Data) {
                 // Fetch project_id for this item to match RLS policies
-                const { data: itemData } = await (supabase.from('content_queue')
+                const { data: rawItemData } = await supabase.from('content_queue')
                     .select('project_id')
                     .eq('id', itemId)
-                    .single() as any);
+                    .single()
+                const itemData = rawItemData as ContentItem | null
 
                 const targetFolder = itemData?.project_id || user.id;
 
@@ -71,8 +101,10 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
         // 4. PRESERVE RAW AS BACKGROUND (Crucial for later edits)
         // We do this first to ensure we have a fallback, but we'll update everything else at the end
-        await (supabase.from('content_queue') as any)
-            .update({ image_url: imageUrl })
+        // 4. PRESERVE RAW AS BACKGROUND (Crucial for later edits)
+        const updateData: ContentUpdate = { image_url: imageUrl };
+        await (supabase.from('content_queue') as unknown as SafeContentQueue)
+            .update(updateData)
             .eq('id', itemId);
 
         // 5. Automatic Smart Placement or Custom Text Baking
@@ -105,7 +137,7 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
                 console.log(`Image Action: Baking text for ${itemId}...`);
                 const bakeRes = await bakeImageWithTextAction(itemId, {
                     text: overlayText,
-                    style: overlayStyle as any
+                    style: overlayStyle // typed via ImageGenerationParams
                 });
                 if (bakeRes.success && bakeRes.url) {
                     finalDisplayUrl = bakeRes.url;
@@ -114,13 +146,14 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
         }
 
         // 6. FINAL SINGLE DB UPDATE (Status, Text, Style, URLs)
-        const { error: finalError } = await (supabase.from('content_queue') as any)
-            .update({
-                overlay_text_content: overlayText,
-                overlay_style_json: overlayStyle,
-                image_final_url: finalDisplayUrl,
-                status: 'Approved'
-            })
+        const finalUpdate: ContentUpdate = {
+            overlay_text_content: overlayText,
+            overlay_style_json: overlayStyle as unknown as Json,
+            image_final_url: finalDisplayUrl,
+            status: 'Approved'
+        };
+        const { error: finalError } = await (supabase.from('content_queue') as unknown as SafeContentQueue)
+            .update(finalUpdate)
             .eq('id', itemId);
 
         if (finalError) throw finalError;
@@ -137,20 +170,22 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
         }
 
         return { success: true, url: finalDisplayUrl };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Image Action Error:", error);
 
         // Update database with failure status
         try {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             if (currentUser) {
-                await (supabase.from('content_queue') as any)
-                    .update({
-                        status: 'Review_Required',
-                        gemini_output: {
-                            error: `Image Gen Failed: ${error.message || 'Unknown'}`
-                        }
-                    })
+                const message = error instanceof Error ? error.message : 'Unknown error';
+                const errorUpdate: ContentUpdate = {
+                    status: 'Review_Required',
+                    gemini_output: {
+                        error: `Image Gen Failed: ${message}`
+                    }
+                };
+                await (supabase.from('content_queue') as unknown as SafeContentQueue)
+                    .update(errorUpdate)
                     .eq('id', itemId)
                     .eq('user_id', currentUser.id);
             }
@@ -158,7 +193,8 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
             console.error("Failed to update error status in DB:", dbError);
         }
 
-        return { success: false, error: error.message };
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return { success: false, error: message };
     }
 }
 
@@ -202,9 +238,10 @@ export async function analyzeImageForPlacementAction(imageUrl: string) {
 
         const analysis = JSON.parse(jsonMatch[0]);
         return { success: true, analysis };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Image Analysis Error:", error);
-        return { success: false, error: error.message };
+        const message = error instanceof Error ? error.message : "Analysis failed";
+        return { success: false, error: message };
     }
 }
 
@@ -213,25 +250,19 @@ export async function analyzeImageForPlacementAction(imageUrl: string) {
  */
 export async function bakeImageWithTextAction(itemId: string, config: {
     text: string,
-    style: {
-        x: number,
-        y: number,
-        fontSize: number,
-        fontFamily: string,
-        color: string,
-        text?: string
-    }
+    style: EditorStyle
 }) {
-    const supabase = await createClient();
+    const supabase = (await createClient()) as SupabaseClient<Database>;
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
         // 1. Fetch current item info
-        const { data: item } = await (supabase.from('content_queue')
+        const { data: itemData } = await supabase.from('content_queue')
             .select('image_url, image_final_url, project_id')
             .eq('id', itemId)
-            .single() as any);
+            .single();
+        const item = itemData as ContentItem | null;
 
         // Use image_url (the raw background) if available. 
         // This is crucial to avoid baking text on top of already baked text.
@@ -249,20 +280,25 @@ export async function bakeImageWithTextAction(itemId: string, config: {
         const height = metadata.height || 1024;
 
         // 4. Create SVG Overlay
-        const posX = (config.style.x / 100) * width;
-        const posY = (config.style.y / 100) * height;
+        const safeX = config.style.x ?? 50;
+        const safeY = config.style.y ?? 50;
+
+        const posX = (safeX / 100) * width;
+        const posY = (safeY / 100) * height;
 
         const lines = (config.text || '').split('\n');
 
         // FONT SCALING FIX
         let fontSize = config.style.fontSize || 54;
-        if ((config.style as any).containerWidth) {
-            const scaleFactor = width / (config.style as any).containerWidth;
+        // Check if style has containerWidth (EditorStyle doesn't have it explicitly, so check as any or optional)
+        const styleWithContainer = config.style as EditorStyle & { containerWidth?: number };
+        if (styleWithContainer.containerWidth) {
+            const scaleFactor = width / styleWithContainer.containerWidth;
             fontSize = Math.round(fontSize * scaleFactor);
         }
 
-        const shadowIntensity = (config.style as any).shadowIntensity ?? 0.8;
-        const opacity = (config.style as any).opacity ?? 1;
+        const shadowIntensity = (config.style as EditorStyle).shadowIntensity ?? 0.8;
+        const opacity = (config.style as EditorStyle).opacity ?? 1;
 
         // Escape XML sensitive characters
         const escapeXml = (unsafe: string) => unsafe.replace(/[<>&'"]/g, (c) => {
@@ -342,19 +378,21 @@ export async function bakeImageWithTextAction(itemId: string, config: {
             .getPublicUrl(fileName);
 
         // 7. Update DB
-        const { error: dbError } = await (supabase.from('content_queue') as any)
-            .update({
-                image_final_url: publicUrl,
-                overlay_text_content: config.text,
-                overlay_style_json: config.style
-            })
+        const bakedUpdate: ContentUpdate = {
+            image_final_url: publicUrl,
+            overlay_text_content: config.text,
+            overlay_style_json: config.style as unknown as Json
+        };
+        const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeContentQueue)
+            .update(bakedUpdate)
             .eq('id', itemId);
 
         if (dbError) throw dbError;
 
         return { success: true, url: publicUrl };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Bake Image Error:", error);
-        return { success: false, error: error.message };
+        const message = error instanceof Error ? error.message : "Baking failed";
+        return { success: false, error: message };
     }
 }

@@ -4,9 +4,32 @@ import { createClient } from '@/utils/supabase/server'
 import { runEbookOutlineFlow, runChapterGenerationFlow } from '@/lib/ai/flows'
 import { stitchImages } from '@/lib/ai/stitching'
 import { revalidatePath } from 'next/cache'
+import { Database } from '@/types/database.types'
+import { SupabaseClient } from '@supabase/supabase-js'
+
+type ProjectRow = Database['public']['Tables']['premium_content_projects']['Row']
+type ChapterRow = Database['public']['Tables']['content_chapters']['Row']
+type ProjectMasterRow = Database['public']['Tables']['project_master']['Row']
+
+interface SafeForgeTables {
+    insert: (data: any) => {
+        select: () => { single: () => Promise<{ data: any, error: any }> },
+        then: <TResult1 = { error: any, data: any }, TResult2 = never>(
+            onfulfilled?: ((value: { error: any, data: any }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
+            onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null | undefined
+        ) => Promise<TResult1 | TResult2>;
+    };
+    select: (cols?: string) => {
+        eq: (col: string, val: any) => {
+            single: () => Promise<{ data: any, error: any }>,
+            lt: (col: string, val: any) => { order: (col: string, val: any) => Promise<{ data: any, error: any }> }
+        }
+    };
+    update: (data: any) => { eq: (col: string, val: any) => Promise<{ error: any }> };
+}
 
 export async function getPremiumProjectsAction() {
-    const supabase = await createClient()
+    const supabase = (await createClient()) as SupabaseClient<Database>
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Not authenticated")
 
@@ -35,16 +58,16 @@ export async function createPremiumProjectAction(formData: {
 
     // 1. Fetch project master data for context
     const { data: projectMaster } = await (supabase
-        .from('project_master')
+        .from('project_master') as unknown as SafeForgeTables)
         .select('*')
         .eq('id', formData.projectId)
-        .single() as any)
+        .single()
 
     if (!projectMaster) throw new Error("Project not found")
 
     // 2. Create the project entry
     const { data: newProjectResult, error: createError } = await (supabase
-        .from('premium_content_projects') as any)
+        .from('premium_content_projects') as unknown as SafeForgeTables)
         .insert({
             project_id: formData.projectId,
             user_id: user.id,
@@ -56,15 +79,18 @@ export async function createPremiumProjectAction(formData: {
         .single()
 
     if (createError) throw createError
-    const project = newProjectResult as any
+    const project = newProjectResult as ProjectRow
 
     try {
         const outline = await runEbookOutlineFlow({
             topic: formData.title,
             context: {
-                companyName: (projectMaster as any).app_name,
-                niche: (projectMaster as any).niche_vertical,
-                targetAudience: (projectMaster as any).target_audience
+                companyName: (projectMaster as ProjectMasterRow).app_name || '',
+                niche: (projectMaster as ProjectMasterRow).niche_vertical || '',
+                targetAudience: (projectMaster as ProjectMasterRow).target_audience || '',
+                problemSolved: '',
+                offering: '',
+                differential: ''
             },
             language: formData.language
         })
@@ -77,16 +103,16 @@ export async function createPremiumProjectAction(formData: {
         }))
 
         const { error: chapterError } = await (supabase
-            .from('content_chapters') as any)
+            .from('content_chapters') as unknown as SafeForgeTables)
             .insert(chapters)
 
         if (chapterError) throw chapterError
 
         // 5. Update project status
         await (supabase
-            .from('premium_content_projects') as any)
+            .from('premium_content_projects') as unknown as SafeForgeTables)
             .update({ status: 'Draft', metadata: { outline } })
-            .eq('id', (project as any).id)
+            .eq('id', project.id)
 
         revalidatePath('/premium-forge')
         return { success: true, id: (project as any).id }
@@ -94,9 +120,9 @@ export async function createPremiumProjectAction(formData: {
     } catch (error: any) {
         console.error("Premium project creation failed:", error)
         await (supabase
-            .from('premium_content_projects') as any)
+            .from('premium_content_projects') as unknown as SafeForgeTables)
             .update({ status: 'Error' })
-            .eq('id', (project as any).id)
+            .eq('id', project.id)
         throw error
     }
 }
@@ -121,10 +147,10 @@ export async function generateChapterAction(chapterId: string) {
 
     // 2. Fetch project context
     const { data: projectMaster } = await (supabase
-        .from('project_master')
+        .from('project_master') as unknown as SafeForgeTables)
         .select('*')
         .eq('id', ch.premium_content_projects.project_id)
-        .single() as any)
+        .single()
 
     // 3. Fetch previous summaries for context
     const { data: previousChapters } = await supabase
@@ -150,9 +176,12 @@ export async function generateChapterAction(chapterId: string) {
             totalChapters: 10, // Default or fetch from metadata
             previousSummaries,
             context: {
-                companyName: (projectMaster as any).app_name,
-                niche: (projectMaster as any).niche_vertical,
-                targetAudience: (projectMaster as any).target_audience
+                companyName: (projectMaster as ProjectMasterRow).app_name || '',
+                niche: (projectMaster as ProjectMasterRow).niche_vertical || '',
+                targetAudience: (projectMaster as ProjectMasterRow).target_audience || '',
+                problemSolved: '',
+                offering: '',
+                differential: ''
             },
             language: 'Español' // Should be passed from project metadata
         })
@@ -210,10 +239,10 @@ export async function generateForgeWizardOptionsAction(topic: string, projectId:
     if (!user) throw new Error("Not authenticated")
 
     const { data: projectMaster } = await (supabase
-        .from('project_master')
+        .from('project_master') as unknown as SafeForgeTables)
         .select('*')
         .eq('id', projectId)
-        .single() as any)
+        .single()
 
     if (!projectMaster) throw new Error("Project not found")
 
@@ -222,8 +251,12 @@ export async function generateForgeWizardOptionsAction(topic: string, projectId:
     const options = await runForgeWizardFlow({
         topic,
         context: {
-            companyName: (projectMaster as any).app_name,
-            niche: (projectMaster as any).niche_vertical
+            companyName: (projectMaster as ProjectMasterRow).app_name || '',
+            niche: (projectMaster as ProjectMasterRow).niche_vertical || '',
+            targetAudience: '',
+            problemSolved: '',
+            offering: '',
+            differential: ''
         },
         language
     })
@@ -231,6 +264,7 @@ export async function generateForgeWizardOptionsAction(topic: string, projectId:
     return options
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateProjectDesignAction(projectId: string, designConfig: any) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

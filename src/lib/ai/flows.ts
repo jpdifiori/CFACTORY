@@ -1,7 +1,30 @@
 import { generateJSON, generateText, AIResponse, AIUsage } from './gemini'
 import { BlockBlueprint, BlockContent, BlockType } from './block-schemas'
+import { Database } from '@/types/database.types'
 
 // --- Types & Constants ---
+
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+
+export interface FlowContext {
+    companyName: string
+    niche: string
+    targetAudience: string
+    problemSolved: string
+    offering: string
+    differential: string
+    brandVoice?: string
+    topic?: string
+    strategicObjective?: string
+    target_url?: string | null
+    strategyContext?: {
+        topic: string
+        orientation: string
+        problem: string
+        differential?: string
+        insights?: string
+    }
+}
 
 export type ContentAngle = 'Educativo' | 'Entretenimiento' | 'Venta Directa' | 'Mito/Verdad' | 'Storytelling'
 
@@ -23,8 +46,7 @@ export interface IdeasOutput {
 }
 
 export async function runIdeaGeneratorFlow(input: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     lastPosts: string[]
     objective: string
     language: string
@@ -136,8 +158,7 @@ interface CopywriterInput {
             orientation: string
             problem: string
             differential?: string
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            insights?: any
+            insights?: string
         }
     }
 }
@@ -274,10 +295,8 @@ export async function runVisualArtistFlow(input: VisualArtistInput): Promise<AIR
 // --- Orchestration Helper for Modal ---
 
 export async function generateDetailedFlow(input: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    campaign: any
+    context: FlowContext
+    campaign: Campaign
     config: {
         count: number
         contentType: string
@@ -312,7 +331,7 @@ export async function generateDetailedFlow(input: {
                 strategy: strategyItem,
                 context: {
                     niche: input.context.niche,
-                    brandVoice: input.campaign.brandVoice || input.context.brandVoice,
+                    brandVoice: input.campaign.brand_voice || input.context.brandVoice || "Professional",
                     objective: input.campaign.strategic_objective || input.campaign.objective,
                     angle: angle,
                     hashtags: {
@@ -344,9 +363,9 @@ export async function generateDetailedFlow(input: {
             const visualResponse = await runVisualArtistFlow({
                 postContent: copyOutput,
                 niche: input.context.niche,
-                visual_style: input.campaign.visualStyle || input.campaign.visual_style,
-                color_palette: input.campaign.colorPalette || input.campaign.color_palette,
-                mood: input.campaign.mood,
+                visual_style: input.campaign.visual_style,
+                color_palette: input.campaign.color_palette || undefined,
+                mood: input.campaign.mood || undefined,
                 imageText: copyOutput.image_title,
                 customInstructions: input.campaign.custom_visual_instructions
             })
@@ -390,8 +409,7 @@ export interface EbookOutlineOutput {
 
 export async function runEbookOutlineFlow(input: {
     topic: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     language: string
 }): Promise<AIResponse<EbookOutlineOutput>> {
     const prompt = `
@@ -429,8 +447,7 @@ export async function runChapterGenerationFlow(input: {
     chapterIndex: number
     totalChapters: number
     previousSummaries: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     language: string
 }): Promise<AIResponse<ChapterGenerationOutput>> {
     const prompt = `
@@ -590,8 +607,7 @@ export interface ForgeWizardOutput {
 
 export async function runForgeWizardFlow(input: {
     topic: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     language: string
 }): Promise<AIResponse<ForgeWizardOutput>> {
     const prompt = `

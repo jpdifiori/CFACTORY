@@ -3,8 +3,25 @@
 import { createClient } from '@/utils/supabase/server'
 import { encryptToken } from '@/lib/security/encryption'
 import { Database } from '@/types/database.types'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 type SocialPlatform = Database['public']['Tables']['social_connections']['Row']['platform']
+type Json = Database['public']['Tables']['project_master']['Row']['safety_zones']
+type SocialRow = Database['public']['Tables']['social_connections']['Row']
+type SocialInsert = Database['public']['Tables']['social_connections']['Insert']
+type SocialUpdate = Database['public']['Tables']['social_connections']['Update']
+type ProjectUpdate = Database['public']['Tables']['project_master']['Update']
+
+interface SafeSocialTable {
+    insert: (data: SocialInsert) => { select: () => { single: () => Promise<{ data: SocialRow, error: any }> } };
+    select: (cols?: string) => { eq: (col: string, val: string) => { single: () => Promise<{ data: SocialRow | null, error: any }> } };
+    update: (data: SocialUpdate) => { eq: (col: string, val: string) => Promise<{ error: any }> };
+    delete: (opts?: any) => { eq: (col: string, val: string) => { eq: (col: string, val?: any) => Promise<{ error: any, count: number | null }> } };
+}
+
+interface SafeProjectTable {
+    update: (data: ProjectUpdate) => { eq: (col: string, val: string) => Promise<{ error: any }> };
+}
 
 export async function saveSocialConnectionAction(formData: {
     projectId: string;
@@ -13,7 +30,7 @@ export async function saveSocialConnectionAction(formData: {
     platformId: string;
     accessToken: string;
 }) {
-    const supabase = (await createClient()) as any
+    const supabase = (await createClient()) as SupabaseClient<Database>
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
@@ -22,7 +39,7 @@ export async function saveSocialConnectionAction(formData: {
     const encryptedToken = encryptToken(formData.accessToken, formData.projectId)
 
     const { data, error } = await (supabase
-        .from('social_connections') as any)
+        .from('social_connections') as unknown as SafeSocialTable)
         .insert({
             project_id: formData.projectId,
             user_id: user.id,
@@ -44,10 +61,10 @@ export async function saveSocialConnectionAction(formData: {
 }
 
 export async function testSocialConnectionAction(connectionId: string) {
-    const supabase = (await createClient()) as any
+    const supabase = (await createClient()) as SupabaseClient<Database>
 
-    const { data: connection, error: fetchError } = await supabase
-        .from('social_connections')
+    const { data: connection, error: fetchError } = await (supabase
+        .from('social_connections') as unknown as SafeSocialTable)
         .select('*')
         .eq('id', connectionId)
         .single()
@@ -80,15 +97,15 @@ export async function testSocialConnectionAction(connectionId: string) {
         })
 
         if (response.ok) {
-            await supabase
-                .from('social_connections')
+            await (supabase
+                .from('social_connections') as unknown as SafeSocialTable)
                 .update({ status: 'active' })
                 .eq('id', connectionId)
 
             return { success: true }
         } else {
-            await supabase
-                .from('social_connections')
+            await (supabase
+                .from('social_connections') as unknown as SafeSocialTable)
                 .update({ status: 'error' })
                 .eq('id', connectionId)
 
@@ -100,11 +117,11 @@ export async function testSocialConnectionAction(connectionId: string) {
     }
 }
 
-export async function updateSafetyZonesAction(projectId: string, safetyZones: any) {
-    const supabase = (await createClient()) as any
+export async function updateSafetyZonesAction(projectId: string, safetyZones: Json) {
+    const supabase = (await createClient()) as SupabaseClient<Database>
 
-    const { error } = await supabase
-        .from('project_master')
+    const { error } = await (supabase
+        .from('project_master') as unknown as SafeProjectTable)
         .update({ safety_zones: safetyZones })
         .eq('id', projectId)
 
@@ -117,7 +134,7 @@ export async function updateSafetyZonesAction(projectId: string, safetyZones: an
 }
 
 export async function deleteSocialConnectionAction(connectionId: string, projectId: string) {
-    const supabase = (await createClient()) as any
+    const supabase = (await createClient()) as SupabaseClient<Database>
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -128,8 +145,8 @@ export async function deleteSocialConnectionAction(connectionId: string, project
 
     // Verify ownership by checking if the connection belongs to the user AND project
     // Although RLS handles user check, explicit logic is good for specific error handling
-    const { error, count } = await supabase
-        .from('social_connections')
+    const { error, count } = await (supabase
+        .from('social_connections') as unknown as SafeSocialTable)
         .delete({ count: 'exact' })
         .eq('id', connectionId)
         .eq('project_id', projectId) // Extra safety check
@@ -142,8 +159,8 @@ export async function deleteSocialConnectionAction(connectionId: string, project
     if (count === 0) {
         console.warn(`No connection found with id ${connectionId} for project ${projectId}`)
         // Try deleting without project_id filter if id is a broad UUID just in case of mismatch
-        const { error: retryError, count: retryCount } = await supabase
-            .from('social_connections')
+        const { error: retryError, count: retryCount } = await (supabase
+            .from('social_connections') as unknown as SafeSocialTable)
             .delete({ count: 'exact' })
             .eq('id', connectionId)
             .eq('user_id', user.id)

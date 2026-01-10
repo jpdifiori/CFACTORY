@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, type Tool } from '@google/generative-ai'
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 if (!apiKey) {
@@ -20,8 +20,7 @@ const searchModel = genAI.getGenerativeModel({
     tools: [
         {
             google_search: {},
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any,
+        } as unknown as Tool,
     ],
     generationConfig: {
         maxOutputTokens: 4096,

@@ -5,9 +5,14 @@ import { createClient } from '@/utils/supabase/server'
 import { recordAIUsageAction } from './usageActions'
 import { generateJSON } from '@/lib/ai/gemini'
 
+import { Database } from '@/types/database.types'
+import { FlowContext } from '@/lib/ai/flows'
+
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+
 export async function generateContentAction(input: {
-    context: any
-    campaign: any
+    context: FlowContext
+    campaign: Campaign
     config: {
         count: number
         contentType: string
@@ -32,17 +37,20 @@ export async function generateContentAction(input: {
         console.log(`Server Action: User ${user.id} starting content generation for campaign ${input.campaign.id}...`)
 
         // 3. FETCH HISTORY: Get last 10 headlines to avoid repetition
-        const { data: recentContent } = await (supabase
-            .from('content_queue') as any)
+        const { data: recentContent } = await supabase
+            .from('content_queue')
             .select('gemini_output')
             .eq('campaign_id', input.campaign.id)
             .not('gemini_output', 'is', null)
             .order('created_at', { ascending: false })
-            .limit(10)
+            .limit(10) as unknown as { data: { gemini_output: any }[] }
 
         const lastHeadlines = recentContent
-            ?.map((item: any) => (item.gemini_output as any)?.headline)
-            .filter(Boolean) || []
+            ?.map((item) => {
+                const output = item.gemini_output as { headline?: string } | null
+                return output?.headline
+            })
+            .filter(Boolean) as string[] || []
 
         const { results, usage } = await generateDetailedFlow({
             ...input,
@@ -59,14 +67,15 @@ export async function generateContentAction(input: {
         )
 
         return { success: true, data: results }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Server Action Error:", error)
-        return { success: false, error: error.message || "Failed to generate content on server" }
+        const message = error instanceof Error ? error.message : "Failed to generate content on server"
+        return { success: false, error: message }
     }
 }
 
 export async function generateCampaignIdeasAction(input: {
-    context: any
+    context: FlowContext
     campaignId: string
     objective: string
     language: string
@@ -78,20 +87,22 @@ export async function generateCampaignIdeasAction(input: {
 
     try {
         // Fetch last 5 posts for context
-        const { data: recentContent } = await (supabase
-            .from('content_queue') as any)
+        // Fetch last 5 posts for context
+        const { data: recentContent } = await supabase
+            .from('content_queue')
             .select('gemini_output')
             .eq('campaign_id', input.campaignId)
             .not('gemini_output', 'is', null)
             .order('created_at', { ascending: false })
-            .limit(5)
+            .limit(5) as unknown as { data: { gemini_output: any }[] }
 
         const recentSummaries = recentContent
-            ?.map((item: any) => {
-                const out = item.gemini_output as any
+            ?.map((item) => {
+                const out = item.gemini_output as { headline?: string; body_copy?: string } | null
+                if (!out?.headline) return null
                 return `${out.headline}: ${out.body_copy?.substring(0, 100)}...`
             })
-            .filter(Boolean) || []
+            .filter(Boolean) as string[] || []
 
         const response = await runIdeaGeneratorFlow({
             context: input.context,
@@ -113,9 +124,10 @@ export async function generateCampaignIdeasAction(input: {
         )
 
         return { success: true, ideas: result.ideas }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Ideas Generation Error:", error)
-        return { success: false, error: error.message || "Failed to generate ideas" }
+        const message = error instanceof Error ? error.message : "Failed to generate ideas"
+        return { success: false, error: message }
     }
 }
 
@@ -174,8 +186,9 @@ export async function optimizeDirectivesAction(input: {
         )
 
         return { success: true, optimizedText: response.data.optimizedText }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Optimization Error:", error)
-        return { success: false, error: error.message || "Failed to optimize directives" }
+        const message = error instanceof Error ? error.message : "Failed to optimize directives"
+        return { success: false, error: message }
     }
 }
