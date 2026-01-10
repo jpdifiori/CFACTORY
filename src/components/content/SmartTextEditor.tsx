@@ -1,15 +1,29 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
-import { Sparkles, Palette, Loader2, Save, Move, Type, Maximize2, Layers } from 'lucide-react';
+import { motion, PanInfo } from 'framer-motion';
+import { Sparkles, Loader2, Save, Move, Type } from 'lucide-react';
 import { analyzeImageForPlacementAction } from '@/app/actions/imageActions';
+import Image from 'next/image';
+
+interface EditorStyle {
+    x?: number;
+    y?: number;
+    fontSize?: number;
+    fontFamily?: string;
+    color?: string;
+    opacity?: number;
+    lineHeight?: number;
+    shadowIntensity?: number;
+    text?: string;
+    containerWidth?: number;
+}
 
 interface SmartTextEditorProps {
     imageUrl: string;
     initialText?: string;
-    initialStyle?: any;
-    onSave: (text: string, style: any) => void;
+    initialStyle?: EditorStyle;
+    onSave: (text: string, style: EditorStyle) => void;
 }
 
 const FONTS = [
@@ -54,7 +68,7 @@ export function SmartTextEditor({ imageUrl, initialText = '', initialStyle = {},
         }
     };
 
-    const handleDragEnd = (_: any, info: any) => {
+    const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
         if (!containerRef.current) return;
 
         const rect = containerRef.current.getBoundingClientRect();
@@ -96,12 +110,15 @@ export function SmartTextEditor({ imageUrl, initialText = '', initialStyle = {},
                 ref={containerRef}
                 className="relative aspect-square w-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 group"
             >
-                <img
-                    src={imageUrl}
-                    alt="Background"
-                    className="w-full h-full object-contain select-none pointer-events-none"
-                    draggable={false}
-                />
+                <div className="absolute inset-0">
+                    <Image
+                        src={imageUrl}
+                        alt="Background"
+                        fill
+                        draggable={false}
+                        className="object-contain select-none pointer-events-none"
+                    />
+                </div>
 
                 {/* Text Layer */}
                 <motion.div

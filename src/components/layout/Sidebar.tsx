@@ -43,19 +43,18 @@ export function Sidebar() {
         if (projData) setProjects(projData)
 
         // Fetch Usage
-        const { data: profile } = await (supabase
+        const { data: profile } = await supabase
             .from('profiles')
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .single() as any)
+            .single()
 
         if (profile) {
+            const typedProfile = profile as { total_tokens_used: number | null, token_limit: number | null }
             setUsage({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                used: Number((profile as any).total_tokens_used || 0),
+                used: Number(typedProfile.total_tokens_used || 0),
                 // Override limit if it's the old default (100k)
-                limit: Math.max(10000000, Number((profile as any).token_limit || 0))
+                limit: Math.max(10000000, Number(typedProfile.token_limit || 0))
             })
         }
     }
