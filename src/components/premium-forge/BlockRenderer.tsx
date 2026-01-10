@@ -1,18 +1,20 @@
 'use client';
 
 import React from 'react';
-import { BlockType, BlockContent } from '@/lib/ai/block-schemas';
-import { Quote, Check, Star, ArrowRight, Code, MoveUp, MoveDown, Trash2, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
+import { BlockType } from '@/lib/ai/block-schemas';
+import { Quote, Star, ArrowRight, Code, MoveUp, MoveDown, Trash2, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 
 interface BlockRendererProps {
     id: string;
     type: BlockType;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     content: any;
     status?: 'Pending' | 'Generating' | 'Completed' | 'Error' | 'ProcessingImage';
     imageUrl?: string;
     htmlOverride?: string;
     isEditing?: boolean;
     onSelection?: () => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onUpdate: (updates: any) => Promise<void>;
     onMove: (direction: 'up' | 'down') => void;
     onDelete: () => void;
@@ -57,7 +59,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                         <Code className="w-3 h-3" /> Block Strategy
                     </div>
-                    <p className="text-sm text-gray-600 italic leading-relaxed">"{content.reasoning}"</p>
+                    <p className="text-sm text-gray-600 italic leading-relaxed">&quot;{content.reasoning}&quot;</p>
                 </div>
             )}
         </div>
@@ -211,6 +213,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             case 'MultiColumn':
                 return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 py-12">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {(content?.columns || [{}, {}, {}]).map((col: any, idx: number) => (
                             <div
                                 key={idx}
@@ -288,7 +291,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                                 className={`text-3xl font-bold italic text-gray-800 mb-8 leading-snug outline-none ${isEditing ? 'hover:bg-primary/5 rounded-2xl p-4 transition-all' : ''}`}
                                 style={{ fontFamily: 'var(--atomic-font-heading)' }}
                             >
-                                "{content?.quote || 'Inspiring insight or categorical truth.'}"
+                                &quot;{content?.quote || 'Inspiring insight or categorical truth.'}&quot;
                             </blockquote>
                             <div className="flex flex-col items-center">
                                 {content?.authorImage && (
