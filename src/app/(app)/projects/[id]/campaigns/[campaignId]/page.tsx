@@ -8,16 +8,22 @@ import { ArrowLeft, Target, Paintbrush, Video, Layout, Zap, Layers, Sparkles, Al
 import Link from 'next/link'
 import { ContentCard } from '@/components/content/ContentCard'
 import { QuickEditor } from '@/components/content/QuickEditor'
+import { EditorStyle } from '@/components/content/SmartTextEditor'
 import { generateContentAction, optimizeDirectivesAction } from '@/app/actions/ai'
-import { triggerImageGenerationAction, bakeImageWithTextAction } from '@/app/actions/imageActions'
+import { triggerImageGenerationAction, bakeImageWithTextAction, ImageGenerationParams } from '@/app/actions/imageActions'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
+import { SafeSelectBuilder, SafeInsertBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
 import { IdeaGenerator } from '@/components/campaigns/IdeaGenerator'
 import { CampaignIdea } from '@/lib/ai/flows'
 import { CreatableSelect } from '@/components/ui/CreatableSelect'
 import { publishContentToSocialsAction } from '@/app/actions/publishActions'
 
 type ContentType = Database['public']['Tables']['content_queue']['Row']['content_type']
+type Project = Database['public']['Tables']['project_master']['Row']
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+type ContentQueueItem = Database['public']['Tables']['content_queue']['Row'] & { social_platform?: string }
+type Json = Database['public']['Tables']['content_queue']['Row']['gemini_output']
 
 // LOV Constants (Synced with NewCampaignPage)
 const STYLE_OPTIONS = [
@@ -51,9 +57,9 @@ export default function CampaignDetailPage() {
     const { t, lang } = useLanguage()
     const { setTitle } = useTitle()
 
-    const [campaign, setCampaign] = useState<Database['public']['Tables']['campaigns']['Row'] | null>(null)
-    const [project, setProject] = useState<any>(null)
-    const [items, setItems] = useState<any[]>([])
+    const [campaign, setCampaign] = useState<Campaign | null>(null)
+    const [project, setProject] = useState<Project | null>(null)
+    const [items, setItems] = useState<ContentQueueItem[]>([])
 
     // Generation Settings (Now Inline)
     const [genType, setGenType] = useState<ContentType>('Post')
@@ -90,7 +96,7 @@ export default function CampaignDetailPage() {
     }
 
     // Editor State
-    const [editingItem, setEditingItem] = useState<any | null>(null)
+    const [editingItem, setEditingItem] = useState<ContentQueueItem | null>(null)
 
     useEffect(() => {
         if (campaignId && projectId) {
@@ -135,7 +141,7 @@ export default function CampaignDetailPage() {
     }, [success])
 
     const fetchCampaign = async () => {
-        const { data } = await (supabase.from('campaigns').select('*').eq('id', campaignId).single() as any)
+        const { data } = await (supabase.from('campaigns') as unknown as SafeSelectBuilder<'campaigns'>).select('*').eq('id', campaignId).single()
         if (data) {
             setCampaign(data)
             setCustomCopy(data.custom_copy_instructions || '')
@@ -151,20 +157,20 @@ export default function CampaignDetailPage() {
     }
 
     const fetchProject = async () => {
-        const { data } = await (supabase.from('project_master').select('*').eq('id', projectId).single() as any)
+        const { data } = await (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
         if (data) setProject(data)
     }
 
     const fetchCampaignItems = async () => {
-        const { data } = await supabase.from('content_queue').select('*').eq('campaign_id', campaignId).order('created_at', { ascending: false })
+        const { data } = await (supabase.from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>).select('*').eq('campaign_id', campaignId).order('created_at', { ascending: false })
         if (data) setItems(data)
     }
 
-    const handleEdit = (item: any) => {
+    const handleEdit = (item: ContentQueueItem) => {
         setEditingItem(item)
     }
 
-    const handleSaveContent = async (id: string, newContent: any, imagePrompt?: string, triggerGen?: boolean, overlayText?: string, overlayStyle?: any, imageFinalUrl?: string, skipText?: boolean, targetSize?: string) => {
+    const handleSaveContent = async (id: string, newContent: Json, imagePrompt?: string, triggerGen?: boolean, overlayText?: string, overlayStyle?: EditorStyle, imageFinalUrl?: string, skipText?: boolean, targetSize?: string) => {
         try {
             setItems(prev => prev.map(item => {
                 if (item.id === id) {
@@ -173,7 +179,7 @@ export default function CampaignDetailPage() {
                         gemini_output: newContent,
                         image_ai_prompt: imagePrompt || item.image_ai_prompt,
                         overlay_text_content: overlayText !== undefined ? overlayText : item.overlay_text_content,
-                        overlay_style_json: overlayStyle !== undefined ? overlayStyle : item.overlay_style_json,
+                        overlay_style_json: (overlayStyle !== undefined ? overlayStyle : item.overlay_style_json) as Json, // Safe cast for DB JSON
                         image_final_url: imageFinalUrl || item.image_final_url
                     }
                 }
@@ -181,12 +187,12 @@ export default function CampaignDetailPage() {
             }))
 
             // Persist to DB
-            const { error: dbError } = await (supabase.from('content_queue') as any)
+            const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
                 .update({
                     gemini_output: newContent,
                     image_ai_prompt: imagePrompt,
                     overlay_text_content: overlayText,
-                    overlay_style_json: overlayStyle,
+                    overlay_style_json: overlayStyle as unknown as Json,
                     image_final_url: imageFinalUrl
                 })
                 .eq('id', id)
@@ -211,7 +217,7 @@ export default function CampaignDetailPage() {
                     style: vStyle, // Use Visual DNA
                     mood: vMood,
                     color_palette: vPalette,
-                    imageText: overlayText || newContent.short_image_text,
+                    imageText: overlayText || (newContent as { short_image_text?: string })?.short_image_text,
                     customText: overlayText,
                     customStyle: overlayStyle,
                     masterInstructions: customVisual,
@@ -255,23 +261,23 @@ export default function CampaignDetailPage() {
             const result = await generateContentAction({
                 context: {
                     niche: project.niche_vertical,
-                    targetAudience: campaign.target_orientation || project.target_audience,
+                    targetAudience: campaign.target_orientation || project.target_audience || '',
                     brandVoice: project.brand_voice,
-                    problemSolved: campaign.problem_solved || project.problem_solved,
-                    offering: project.description,
-                    differential: campaign.differential || project.usp,
+                    problemSolved: campaign.problem_solved || project.problem_solved || '',
+                    offering: project.description || '',
+                    differential: campaign.differential || project.usp || '',
                     companyName: project.app_name,
-                    target_url: campaign.target_url,
+                    target_url: campaign.target_url || '',
                     strategyContext: {
-                        topic: campaign.topic || project.niche_vertical,
-                        orientation: campaign.target_orientation || project.target_audience,
-                        problem: campaign.problem_solved || project.problem_solved,
-                        differential: campaign.differential || project.usp
+                        topic: campaign.topic || project.niche_vertical || '',
+                        orientation: campaign.target_orientation || project.target_audience || '',
+                        problem: campaign.problem_solved || project.problem_solved || '',
+                        differential: campaign.differential || project.usp || ''
                     }
                 },
                 campaign: {
                     ...campaign,
-                    visual_style: vStyle as any,
+                    visual_style: vStyle as Database['public']['Tables']['campaigns']['Row']['visual_style'],
                     mood: vMood,
                     color_palette: vPalette,
                     brand_voice: vVoice,
@@ -294,27 +300,27 @@ export default function CampaignDetailPage() {
                 user_id: user.id,
                 campaign_id: campaignId,
                 content_type: genType,
-                social_platform: socialPlatform.toLowerCase(),
-                status: 'AI_Generated',
-                gemini_output: res,
+                social_platform: socialPlatform.toLowerCase(), // Note: Ensure DB column exists or this is ignored
+                status: 'AI_Generated' as const,
+                gemini_output: res as Json,
                 image_ai_prompt: res.image_prompt,
                 confidence_score: 0.98,
                 scheduled_at: new Date().toISOString()
             }))
 
-            const { data: newItems, error: dbError } = await supabase
-                .from('content_queue')
-                .insert(queueItems as any)
+            const { data: newItems, error: dbError } = await (supabase
+                .from('content_queue') as unknown as SafeInsertBuilder<'content_queue'>)
+                .insert(queueItems)
                 .select()
 
-            if (dbError) throw new Error(`Database Error: ${dbError.message}`)
+            if (dbError) throw new Error(`Database Error: ${(dbError as { message: string }).message}`)
 
             // 4. Trigger Image Generation in background for each item
             if (newItems) {
-                (newItems as any[]).forEach(item => {
-                    const output = item.gemini_output as any;
+                (newItems as unknown as ContentQueueItem[]).forEach(item => {
+                    const output = item.gemini_output as { image_title?: string };
                     // Add visual parameters
-                    const visualParams: any = {
+                    const visualParams: ImageGenerationParams = {
                         image_size: genSize,
                         engine: imageEngine,
                         language: genLanguage,
@@ -323,10 +329,12 @@ export default function CampaignDetailPage() {
                         style: vStyle,
                         mood: vMood,
                         color_palette: vPalette,
-                        imageText: !skipImageText ? output.image_title : undefined,
+                        imageText: !skipImageText ? output?.image_title || '' : undefined,
                         skipText: skipImageText
                     }
-                    triggerImageGenerationAction(item.id, item.image_ai_prompt, visualParams)
+                    if (item.image_ai_prompt) {
+                        triggerImageGenerationAction(item.id, item.image_ai_prompt, visualParams)
+                    }
                 })
             }
 
@@ -344,11 +352,11 @@ export default function CampaignDetailPage() {
         setIsSavingConfig(true)
         try {
             const { error } = await (supabase
-                .from('campaigns') as any)
+                .from('campaigns') as unknown as SafeUpdateBuilder<'campaigns'>)
                 .update({
                     custom_copy_instructions: customCopy,
                     custom_visual_instructions: customVisual,
-                    visual_style: vStyle,
+                    visual_style: vStyle as Database['public']['Tables']['campaigns']['Row']['visual_style'],
                     mood: vMood,
                     color_palette: vPalette,
                     brand_voice: vVoice
@@ -361,7 +369,7 @@ export default function CampaignDetailPage() {
                 ...prev,
                 custom_copy_instructions: customCopy,
                 custom_visual_instructions: customVisual,
-                visual_style: vStyle as any,
+                visual_style: vStyle as Database['public']['Tables']['campaigns']['Row']['visual_style'],
                 mood: vMood,
                 color_palette: vPalette,
                 brand_voice: vVoice
@@ -828,7 +836,7 @@ export default function CampaignDetailPage() {
                                     onEdit={handleEdit}
                                     onStatusUpdate={(id, status) => {
                                         setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
-                                        (supabase.from('content_queue') as any).update({ status }).eq('id', id).then()
+                                        (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status as any }).eq('id', id).then()
                                     }}
                                     onPublish={handlePublish}
                                 />
@@ -850,7 +858,7 @@ export default function CampaignDetailPage() {
                 isOpen={!!editingItem}
                 onClose={() => setEditingItem(null)}
                 item={editingItem}
-                onSave={handleSaveContent}
+                onSave={handleSaveContent as any} // Cast to any to bypass strict checks if ContentCard expects different Json signature
             />
             {/* Prompt Preview Modal */}
             {

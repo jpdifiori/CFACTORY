@@ -7,25 +7,13 @@ import { recordAIUsageAction } from './usageActions'
 import { Database } from '@/types/database.types'
 import { EditorStyle } from '@/components/content/SmartTextEditor';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
 
 type ContentItem = Database['public']['Tables']['content_queue']['Row']
 type ContentUpdate = Database['public']['Tables']['content_queue']['Update']
 type Json = Database['public']['Tables']['content_queue']['Row']['gemini_output'] // safe way to get Json type
 
-// Helper interface to allow chaining .eq().eq() without 'any' or 'never' issues
-interface QueryBuilderChain {
-    eq: (col: string, val: string) => QueryBuilderChain;
-    then: <TResult1 = { error: unknown | null }, TResult2 = never>(
-        onfulfilled?: ((value: { error: unknown | null }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
-        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null | undefined
-    ) => Promise<TResult1 | TResult2>;
-}
-
-interface SafeContentQueue {
-    update: (data: ContentUpdate) => QueryBuilderChain
-}
-
-interface ImageGenerationParams {
+export interface ImageGenerationParams {
     engine?: 'fal' | 'gemini'
     customText?: string
     imageText?: string
@@ -59,7 +47,10 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
             const base64Data = await generateImageGemini(prompt, params);
             if (base64Data) {
                 // Fetch project_id for this item to match RLS policies
-                const { data: rawItemData } = await supabase.from('content_queue')
+                // Using standard client is fine here as it infers correctly usually,
+                // but we can use SafeSelectBuilder if strictness fails.
+                const { data: rawItemData } = await (supabase
+                    .from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>)
                     .select('project_id')
                     .eq('id', itemId)
                     .single()
@@ -101,9 +92,8 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
         // 4. PRESERVE RAW AS BACKGROUND (Crucial for later edits)
         // We do this first to ensure we have a fallback, but we'll update everything else at the end
-        // 4. PRESERVE RAW AS BACKGROUND (Crucial for later edits)
         const updateData: ContentUpdate = { image_url: imageUrl };
-        await (supabase.from('content_queue') as unknown as SafeContentQueue)
+        await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
             .update(updateData)
             .eq('id', itemId);
 
@@ -152,7 +142,7 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
             image_final_url: finalDisplayUrl,
             status: 'Approved'
         };
-        const { error: finalError } = await (supabase.from('content_queue') as unknown as SafeContentQueue)
+        const { error: finalError } = await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
             .update(finalUpdate)
             .eq('id', itemId);
 
@@ -184,7 +174,7 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
                         error: `Image Gen Failed: ${message}`
                     }
                 };
-                await (supabase.from('content_queue') as unknown as SafeContentQueue)
+                await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
                     .update(errorUpdate)
                     .eq('id', itemId)
                     .eq('user_id', currentUser.id);
@@ -258,7 +248,7 @@ export async function bakeImageWithTextAction(itemId: string, config: {
         if (!user) throw new Error("Not authenticated");
 
         // 1. Fetch current item info
-        const { data: itemData } = await supabase.from('content_queue')
+        const { data: itemData } = await (supabase.from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>)
             .select('image_url, image_final_url, project_id')
             .eq('id', itemId)
             .single();
@@ -383,7 +373,7 @@ export async function bakeImageWithTextAction(itemId: string, config: {
             overlay_text_content: config.text,
             overlay_style_json: config.style as unknown as Json
         };
-        const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeContentQueue)
+        const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
             .update(bakedUpdate)
             .eq('id', itemId);
 

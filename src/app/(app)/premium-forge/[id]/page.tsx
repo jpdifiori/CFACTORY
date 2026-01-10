@@ -20,7 +20,25 @@ import {
 import Link from 'next/link'
 import { THEMES, applyTheme, ThemeOverrides } from '@/lib/ai/templates'
 import { useLanguage } from '@/context/LanguageContext'
+import { Database } from '@/types/database.types'
+import { SafeSelectBuilder } from '@/utils/supabaseSafe'
+import { BlockType } from '@/lib/ai/block-schemas'
 
+type PremiumProject = Database['public']['Tables']['premium_content_projects']['Row'] & { project_master?: { app_name: string } }
+type ContentChapter = Database['public']['Tables']['content_chapters']['Row']
+
+interface ContentBlock {
+    id: string
+    project_id: string
+    chapter_id: string
+    index: number
+    type: BlockType
+    status: 'Pending' | 'Generating' | 'Completed' | 'Error' | 'ProcessingImage'
+    content_json: any
+    image_url: string | null
+    html_override?: string
+    created_at: string
+}
 // Debounce hook for persistence
 function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value)
@@ -66,11 +84,11 @@ export default function PremiumProjectDetailPage() {
     const { id } = useParams()
     const { t } = useLanguage()
     const supabase = createClient()
-    const [project, setProject] = useState<any>(null)
-    const [chapters, setChapters] = useState<any[]>([])
+    const [project, setProject] = useState<PremiumProject | null>(null)
+    const [chapters, setChapters] = useState<ContentChapter[]>([])
     const [loading, setLoading] = useState(true)
-    const [selectedChapter, setSelectedChapter] = useState<any>(null)
-    const [blocks, setBlocks] = useState<any[]>([])
+    const [selectedChapter, setSelectedChapter] = useState<ContentChapter | null>(null)
+    const [blocks, setBlocks] = useState<ContentBlock[]>([])
     const [isBlueprinting, setIsBlueprinting] = useState(false)
     const [selectedTheme, setSelectedTheme] = useState('saas_modern')
     const [isGeneratingAll, setIsGeneratingAll] = useState(false)
@@ -112,7 +130,8 @@ export default function PremiumProjectDetailPage() {
 
     useEffect(() => {
         if (project?.id && debouncedOverrides && !loading) {
-            updateProjectDesignAction(project.id, debouncedOverrides)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            updateProjectDesignAction(project.id, debouncedOverrides as any)
         }
     }, [debouncedOverrides])
 
@@ -146,11 +165,10 @@ export default function PremiumProjectDetailPage() {
 
     const fetchProjectData = async () => {
         const { data: p } = await (supabase
-            .from('premium_content_projects')
+            .from('premium_content_projects') as unknown as SafeSelectBuilder<'premium_content_projects'>)
             .select(`*, project_master(app_name)`)
             .eq('id', id as string)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .single() as any)
+            .single()
 
         const { data: c } = await supabase
             .from('content_chapters')
@@ -159,12 +177,9 @@ export default function PremiumProjectDetailPage() {
             .order('chapter_index', { ascending: true })
 
         if (p) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setProject(p as any)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((p as any).design_config) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setOverrides(prev => ({ ...prev, ...((p as any).design_config as any) }))
+            setProject(p as PremiumProject)
+            if (p.design_config) {
+                setOverrides(prev => ({ ...prev, ...(p.design_config as unknown as ThemeOverrides) }))
             }
         }
         if (c) {
@@ -174,12 +189,12 @@ export default function PremiumProjectDetailPage() {
 
         // Fetch blocks if a chapter is selected
         if (selectedChapter) {
-            const { data: b } = await supabase
-                .from('content_blocks')
+            const { data: b } = await (supabase
+                .from('content_blocks') as unknown as SafeSelectBuilder<'content_blocks'>)
                 .select('*')
                 .eq('chapter_id', selectedChapter.id)
                 .order('index', { ascending: true })
-            if (b) setBlocks(b)
+            if (b) setBlocks(b as unknown as ContentBlock[])
         }
 
         setLoading(false)
@@ -193,8 +208,8 @@ export default function PremiumProjectDetailPage() {
 
     const fetchBlocks = async (chapterId: string) => {
         console.log("Fetching blocks for chapter:", chapterId)
-        const { data: b, error } = await supabase
-            .from('content_blocks')
+        const { data: b, error } = await (supabase
+            .from('content_blocks') as unknown as SafeSelectBuilder<'content_blocks'>)
             .select('*')
             .eq('chapter_id', chapterId)
             .order('index', { ascending: true })
@@ -205,8 +220,9 @@ export default function PremiumProjectDetailPage() {
 
         if (b) {
             console.log("Blocks fetched successfully:", b.length)
-            setBlocks(b)
-            return b
+            const typedBlocks = b as unknown as ContentBlock[]
+            setBlocks(typedBlocks)
+            return typedBlocks
         } else {
             setBlocks([])
             return []
@@ -233,8 +249,7 @@ export default function PremiumProjectDetailPage() {
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleGenerateBlocks = async (blocksArray?: any[]) => {
+    const handleGenerateBlocks = async (blocksArray?: ContentBlock[]) => {
         // If called by React onClick, blocksArray will be the synthetic event
         const targetBlocks = Array.isArray(blocksArray) ? blocksArray : blocks
         if (!targetBlocks || !targetBlocks.length) {
@@ -259,14 +274,13 @@ export default function PremiumProjectDetailPage() {
                 } else {
                     // Refresh this specific block's data after success
                     const { data: updatedBlock } = await (supabase
-                        .from('content_blocks')
+                        .from('content_blocks') as unknown as SafeSelectBuilder<'content_blocks'>)
                         .select('*')
                         .eq('id', block.id)
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        .single() as any)
+                        .single()
 
                     if (updatedBlock) {
-                        setBlocks(prev => (prev || []).map(b => b.id === block.id ? updatedBlock : b))
+                        setBlocks(prev => (prev || []).map(b => b.id === block.id ? (updatedBlock as unknown as ContentBlock) : b))
                     }
                 }
             } catch (e) {
@@ -278,7 +292,7 @@ export default function PremiumProjectDetailPage() {
         console.log("All parallel generations attempted.")
     }
 
-    const handleUpdateBlock = async (blockId: string, updates: any) => {
+    const handleUpdateBlock = async (blockId: string, updates: { content_json?: unknown, html_override?: string, index?: number }) => {
         try {
             await updateBlockContentAction(blockId, updates)
             if (selectedChapter) fetchBlocks(selectedChapter.id)
@@ -471,8 +485,7 @@ export default function PremiumProjectDetailPage() {
         setIsApplyingMood(true)
         const result = await generateDesignOverridesAction(designMood)
         if (result.success && result.overrides) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setOverrides(prev => ({ ...prev, ...(result.overrides as any) }))
+            setOverrides(prev => ({ ...prev, ...(result.overrides as ThemeOverrides) }))
             setDesignMood('')
         }
         setIsApplyingMood(false)
@@ -774,7 +787,7 @@ export default function PremiumProjectDetailPage() {
                                 <span className="text-[8px] font-bold text-gray-500 w-12 text-right">Shadow</span>
                                 <div className="flex bg-black rounded-lg p-0.5 border border-white/5 flex-1">
                                     {['none', 'soft', 'medium', 'hard'].map(s => (
-                                        <button key={s} onClick={() => setOverrides({ ...overrides, shadowDepth: s as any })} className={`flex-1 py-1 rounded-md text-[7px] font-black uppercase transition-all ${overrides.shadowDepth === s ? 'bg-white/10 text-white' : 'text-gray-600 hover:text-gray-400'}`}>
+                                        <button key={s} onClick={() => setOverrides({ ...overrides, shadowDepth: s as 'none' | 'soft' | 'medium' | 'hard' })} className={`flex-1 py-1 rounded-md text-[7px] font-black uppercase transition-all ${overrides.shadowDepth === s ? 'bg-white/10 text-white' : 'text-gray-600 hover:text-gray-400'}`}>
                                             {s}
                                         </button>
                                     ))}

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { SafeSelectBuilder, SafeUpdateBuilder, SafeInsertBuilder } from '@/utils/supabaseSafe'
 
 export async function recordAIUsageAction(
     tokens: number,
@@ -21,38 +22,34 @@ export async function recordAIUsageAction(
         console.log(`[USAGE] Recording ${tokens} tokens for ${feature} (Model: ${model}) for user ${user.id}`)
 
         // 1. Update Profile total
-        // 1. Update Profile total
         const { error: profileError } = await supabase.rpc('increment_user_tokens', {
             user_id: user.id,
             tokens_to_add: tokens
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any)
+        } as unknown as undefined) // Force cast to undefined to satisfy incorrect generated RPC signature if present
 
         if (profileError) {
             console.warn('[USAGE] RPC increment_user_tokens failed, trying manual update:', profileError.message)
 
             // Fallback if RPC doesn't exist yet
             const { data: profile, error: fetchError } = await (supabase
-                .from('profiles')
+                .from('profiles') as unknown as SafeSelectBuilder<'profiles'>)
                 .select('total_tokens_used')
                 .eq('id', user.id)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .single() as any)
+                .single()
 
             if (fetchError) {
-                console.error('[USAGE] Failed to fetch profile for manual update:', fetchError.message)
+                const msg = (fetchError as { message: string }).message || JSON.stringify(fetchError)
+                console.error('[USAGE] Failed to fetch profile for manual update:', msg)
             } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const current = (profile?.total_tokens_used || 0) as number
                 const { error: updateError } = await (supabase
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .from('profiles') as any)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .update({ total_tokens_used: Number(current) + tokens } as any)
+                    .from('profiles') as unknown as SafeUpdateBuilder<'profiles'>)
+                    .update({ total_tokens_used: Number(current) + tokens })
                     .eq('id', user.id)
 
                 if (updateError) {
-                    console.error('[USAGE] Manual update of tokens failed:', updateError.message)
+                    const msg = (updateError as { message: string }).message || JSON.stringify(updateError)
+                    console.error('[USAGE] Manual update of tokens failed:', msg)
                 } else {
                     console.log(`[USAGE] Manual update success: ${current} -> ${current + tokens}`)
                 }
@@ -63,8 +60,7 @@ export async function recordAIUsageAction(
 
         // 2. Log detailed usage (Don't let this block success of the operation)
         const { error: logError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .from('ai_usage_logs') as any)
+            .from('ai_usage_logs') as unknown as SafeInsertBuilder<'ai_usage_logs'>)
             .insert({
                 user_id: user.id,
                 model_name: model,
@@ -75,7 +71,8 @@ export async function recordAIUsageAction(
             })
 
         if (logError) {
-            console.error('[USAGE] Failed to insert usage log:', logError.message)
+            const msg = (logError as { message: string }).message || JSON.stringify(logError)
+            console.error('[USAGE] Failed to insert usage log:', msg)
         }
 
         return { success: true }
@@ -92,11 +89,10 @@ export async function getUserUsageAction() {
         if (!user) return null
 
         const { data: profile } = await (supabase
-            .from('profiles')
+            .from('profiles') as unknown as SafeSelectBuilder<'profiles'>)
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .single() as any)
+            .single()
 
         return profile
     } catch {

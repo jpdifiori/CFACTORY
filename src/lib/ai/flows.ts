@@ -489,8 +489,7 @@ export async function runChapterBlueprintFlow(input: {
     chapterTitle: string
     chapterDescription: string
     ebookTopic: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     language: string
 }): Promise<AIResponse<ChapterBlueprintOutput>> {
     const prompt = `
@@ -539,8 +538,7 @@ export async function runBlockGenerationFlow(input: {
     blockType: BlockType
     chapterTitle: string
     ebookTopic: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any
+    context: FlowContext
     language: string
     previousBlocksContext?: string
 }): Promise<AIResponse<BlockGenerationOutput>> {

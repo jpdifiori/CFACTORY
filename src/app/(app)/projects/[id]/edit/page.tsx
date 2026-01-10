@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
+import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
 
 type BrandVoice = Database['public']['Tables']['project_master']['Row']['brand_voice']
 
@@ -42,10 +43,10 @@ export default function EditProjectPage() {
     const fetchProject = async () => {
         try {
             const { data, error } = await (supabase
-                .from('project_master')
+                .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
                 .select('*')
                 .eq('id', projectId)
-                .single() as any)
+                .single()
 
             if (error) throw error
             if (data) {
@@ -80,7 +81,7 @@ export default function EditProjectPage() {
 
         try {
             const { data, error } = await (supabase
-                .from('project_master') as any)
+                .from('project_master') as unknown as SafeUpdateBuilder<'project_master'>)
                 .update({
                     app_name: formData.app_name,
                     niche_vertical: formData.niche_vertical,

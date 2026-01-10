@@ -8,11 +8,20 @@ import { getPremiumProjectsAction, createPremiumProjectAction } from '@/app/acti
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
 import { calculateStrategyAction, StrategyResponse } from '@/app/actions/strategy_actions'
+import { Database } from '@/types/database.types'
+import { SafeSelectBuilder } from '@/utils/supabaseSafe'
 
+type PremiumProject = Database['public']['Tables']['premium_content_projects']['Row'] & { project_master?: { app_name: string } }
+type ProjectMaster = Database['public']['Tables']['project_master']['Row']
+
+interface WizardOptions {
+    titles: { title: string; hook: string; reasoning: string }[]
+    focus_angles: { id: string; label: string; description: string }[]
+}
 export default function PremiumForgePage() {
     const { t } = useLanguage()
     const supabase = createClient()
-    const [projects, setProjects] = useState<any[]>([])
+    const [projects, setProjects] = useState<PremiumProject[]>([])
     const [loading, setLoading] = useState(true)
     const [isCreating, setIsCreating] = useState(false)
     const [showNewModal, setShowNewModal] = useState(false)
@@ -20,7 +29,7 @@ export default function PremiumForgePage() {
     // Wizard State
     const [wizardStep, setWizardStep] = useState(1) // 1: Topic, 2: Title, 3: Angle
     const [topic, setTopic] = useState('')
-    const [wizardOptions, setWizardOptions] = useState<any>(null)
+    const [wizardOptions, setWizardOptions] = useState<WizardOptions | null>(null)
     const [isGeneratingOptions, setIsGeneratingOptions] = useState(false)
     const [selectedTitle, setSelectedTitle] = useState('')
     const [selectedAngle, setSelectedAngle] = useState('')
@@ -33,7 +42,7 @@ export default function PremiumForgePage() {
     // New Project State (Keeping these for final submission)
     const [contentType, setContentType] = useState<'ebook' | 'blog' | 'whitepaper'>('ebook')
     const [selectedProjectId, setSelectedProjectId] = useState('')
-    const [myProjects, setMyProjects] = useState<any[]>([])
+    const [myProjects, setMyProjects] = useState<ProjectMaster[]>([])
 
     useEffect(() => {
         fetchInitialData()
@@ -47,12 +56,12 @@ export default function PremiumForgePage() {
             // Fetch projects for the dropdown
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
-                const { data: p } = await supabase
-                    .from('project_master')
+                const { data: p } = await (supabase
+                    .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
                     .select('id, app_name')
                     .eq('user_id', user.id)
-                setMyProjects(p || [])
-                if (p && (p as any[]).length > 0) setSelectedProjectId((p as any[])[0].id)
+                setMyProjects(p as ProjectMaster[])
+                if (p && p.length > 0) setSelectedProjectId(p[0].id)
             }
         } catch (err) {
             console.error("Dashboard error:", err)
@@ -75,7 +84,7 @@ export default function PremiumForgePage() {
             setWizardStep(1.5)
         } catch (err: any) {
             console.error("Strategy error:", err)
-            alert(`Strategy error: ${err.message}`)
+            alert(`Strategy error: ${err.message || 'Unknown error'}`)
         } finally {
             setIsCalculatingStrategy(false)
         }
@@ -88,8 +97,8 @@ export default function PremiumForgePage() {
             const lang = t.campaigns.language.split(' ')[0] === 'ENGLISH' ? 'English' : 'Español'
             const { generateForgeWizardOptionsAction } = await import('@/app/actions/premium_forge')
             // We pass the strategy reasoning to influence the titles/angles
-            const options = await generateForgeWizardOptionsAction(`${topic} (Strategy focus: ${strategyResponse.scorecard.reasoning})`, selectedProjectId, lang)
-            setWizardOptions(options)
+            const response = await generateForgeWizardOptionsAction(`${topic} (Strategy focus: ${strategyResponse.scorecard.reasoning})`, selectedProjectId, lang)
+            setWizardOptions(response.data)
             setWizardStep(2)
         } catch (err) {
             console.error("Wizard options error:", err)
@@ -163,7 +172,7 @@ export default function PremiumForgePage() {
                     <div
                         key={type.id}
                         className={`group relative p-8 rounded-3xl border border-white/5 bg-secondary/20 hover:bg-secondary/40 transition-all cursor-pointer overflow-hidden ${contentType === type.id ? 'ring-2 ring-primary border-transparent' : ''}`}
-                        onClick={() => { setContentType(type.id as any); setShowNewModal(true); }}
+                        onClick={() => { setContentType(type.id as 'ebook' | 'blog' | 'whitepaper'); setShowNewModal(true); }}
                     >
                         <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${type.color} flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform`}>
                             <type.icon className="w-7 h-7" />
@@ -277,7 +286,7 @@ export default function PremiumForgePage() {
                                                     onChange={(e) => setSelectedProjectId(e.target.value)}
                                                     className="w-full bg-secondary/30 border border-white/5 rounded-2xl p-4 text-white font-bold outline-none ring-0 appearance-none"
                                                 >
-                                                    {(myProjects || []).map((p: any) => <option key={p.id} value={p.id}>{p.app_name}</option>)}
+                                                    {(myProjects || []).map((p) => <option key={p.id} value={p.id}>{p.app_name}</option>)}
                                                 </select>
                                             </div>
                                             <div className="space-y-2">
@@ -286,7 +295,7 @@ export default function PremiumForgePage() {
                                                     {(contentTypes || []).map(t => (
                                                         <button
                                                             key={t.id}
-                                                            onClick={() => setContentType(t.id as any)}
+                                                            onClick={() => setContentType(t.id as 'ebook' | 'blog' | 'whitepaper')}
                                                             className={`flex-1 py-3 rounded-xl transition-all ${contentType === t.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}
                                                         >
                                                             <t.icon className="w-4 h-4 mx-auto" />
@@ -419,7 +428,7 @@ export default function PremiumForgePage() {
                                     </div>
 
                                     <div className="space-y-3">
-                                        {(wizardOptions.titles || []).map((t: any, idx: number) => (
+                                        {(wizardOptions.titles || []).map((t: WizardOptions['titles'][0], idx: number) => (
                                             <div
                                                 key={idx}
                                                 onClick={() => { setSelectedTitle(t.title); setWizardStep(3); }}
@@ -456,7 +465,7 @@ export default function PremiumForgePage() {
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-4">
-                                        {(wizardOptions.focus_angles || []).map((angle: any) => (
+                                        {(wizardOptions.focus_angles || []).map((angle: WizardOptions['focus_angles'][0]) => (
                                             <div
                                                 key={angle.id}
                                                 onClick={() => setSelectedAngle(angle.id)}

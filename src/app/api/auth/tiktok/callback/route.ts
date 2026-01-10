@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { encryptToken } from '@/lib/security/encryption';
+import { SafeInsertBuilder } from '@/utils/supabaseSafe';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY;
 const CLIENT_SECRET = process.env.TIKTOK_CLIENT_SECRET;
@@ -93,18 +94,10 @@ export async function GET(req: NextRequest) {
         }
 
         // Encrypt tokens
-        // We might want to store refresh token too. For now let's store access_token in the main field 
-        // and put refresh_token in metadata or a separate column if we had one. 
-        // The current schema has `encrypted_token`, let's store the access_token there.
-        // We can store refresh_token in metadata for n8n to handle refreshing if needed, 
-        // OR ideally we should enhance the schema to support refresh tokens.
-        // For this MVP, we will store access_token.
-
         const encryptedToken = encryptToken(access_token, projectId);
 
         const { error: upsertError } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .from('social_connections') as any)
+            .from('social_connections') as unknown as SafeInsertBuilder<'social_connections'>)
             .upsert({
                 project_id: projectId,
                 user_id: user.id,

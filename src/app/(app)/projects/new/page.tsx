@@ -7,6 +7,7 @@ import { ArrowLeft, Rocket, Building2, Target, Sparkles, Loader2 } from 'lucide-
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { useLanguage } from '@/context/LanguageContext'
+import { SafeInsertBuilder } from '@/utils/supabaseSafe'
 
 type BrandVoice = Database['public']['Tables']['project_master']['Row']['brand_voice']
 
@@ -36,10 +37,12 @@ export default function NewProjectPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error('Not authenticated')
 
+            if (!user) throw new Error('Not authenticated')
+
             const { data, error } = await (supabase
-                .from('project_master')
-                .insert([{ ...formData, user_id: user.id }] as any)
-                .select() as any)
+                .from('project_master') as unknown as SafeInsertBuilder<'project_master'>)
+                .insert([{ ...formData, user_id: user.id }])
+                .select()
 
             if (error) throw error
 

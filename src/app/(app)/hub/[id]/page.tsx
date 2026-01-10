@@ -9,6 +9,7 @@ import {
     ArrowRight, Loader2, Sparkles, Zap, Filter
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
+import { SafeSelectBuilder } from '@/utils/supabaseSafe'
 import { useTitle } from '@/context/TitleContext'
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
@@ -42,9 +43,9 @@ export default function HubPage() {
         const fetchHubData = async () => {
             setLoading(true)
             try {
-                const projPromise = supabase.from('project_master').select('*').eq('id', projectId).single()
-                const connPromise = supabase.from('social_connections').select('*').eq('project_id', projectId)
-                const contPromise = supabase.from('content_queue')
+                const projPromise = (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
+                const connPromise = (supabase.from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>).select('*').eq('project_id', projectId)
+                const contPromise = (supabase.from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>)
                     .select('*, campaigns(name)')
                     .eq('project_id', projectId)
                     .order('created_at', { ascending: false })
@@ -52,17 +53,14 @@ export default function HubPage() {
 
                 const [projRes, connRes, contRes] = await Promise.all([projPromise, connPromise, contPromise])
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const projResAny = projRes as any
-                if (projResAny.error) throw projResAny.error
-                if (projResAny.data) setProject(projResAny.data as Project)
+                if (projRes.error) throw projRes.error
+                if (projRes.data) setProject(projRes.data as Project)
 
                 if (connRes.data) setConnections(connRes.data as SocialConnection[])
 
                 // For the join query, we need to be careful with the type
                 if (contRes.data) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    setRecentContent(contRes.data as any as ContentItem[])
+                    setRecentContent(contRes.data as unknown as ContentItem[])
                 }
             } catch (error) {
                 console.error('Error fetching hub data:', error)

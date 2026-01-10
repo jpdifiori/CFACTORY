@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { SafeSelectBuilder } from '@/utils/supabaseSafe';
 import puppeteer from 'puppeteer';
 
 interface ContentBlock {
@@ -22,12 +23,15 @@ export async function POST(req: NextRequest) {
         const supabase = await createClient();
 
         // 1. Fetch Project & Blocks
-        const { data: project, error: projectError } = await (supabase
-            .from('premium_content_projects')
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { data: rawProject, error: projectError } = await (supabase
+            .from('premium_content_projects') as unknown as SafeSelectBuilder<'premium_content_projects'>)
             .select(`*, content_blocks(*)`)
             .eq('id', projectId)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .single() as any);
+            .single();
+
+        type ProjectWithBlocks = typeof rawProject & { content_blocks: ContentBlock[] };
+        const project = rawProject as ProjectWithBlocks;
 
         if (projectError || !project) {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -101,8 +105,7 @@ export async function POST(req: NextRequest) {
         await browser.close();
 
         // 4. Return PDF
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return new NextResponse(pdfBuffer as any, {
+        return new NextResponse(pdfBuffer as Buffer | Uint8Array as BodyInit, { // Puppeteer returns Uint8Array (Buffer compatible)
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="MassGenix_${project.title.replace(/\s+/g, '_')}.pdf"`

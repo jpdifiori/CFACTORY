@@ -16,6 +16,10 @@ async function callFalAiFlux(prompt: string): Promise<string> {
     });
 }
 
+import { SafeInsertBuilder, SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
+
+// ...
+
 export async function generateChapterBlueprintAction(chapterId: string) {
     try {
         const supabase = await createClient()
@@ -24,29 +28,36 @@ export async function generateChapterBlueprintAction(chapterId: string) {
 
         // 1. Fetch chapter and project context safely
         const { data: chapter, error: chapterError } = await (supabase
-            .from('content_chapters')
+            .from('content_chapters') as unknown as SafeSelectBuilder<'content_chapters'>)
             .select(`
                 *,
                 premium_content_projects!inner (*)
             `)
             .eq('id', chapterId)
-            .single() as any)
+            .single()
 
-        if (chapterError || !chapter) {
+        // Cast chapter to include joined Project data
+        const ch = chapter as any
+
+        if (chapterError || !ch) {
             console.error("Chapter fetch error:", chapterError)
             return { success: false, error: "Chapter not found" }
         }
 
         // 2. Generate the Blueprint (Block sequence)
-        const projectTitle = (chapter as any).premium_content_projects?.title || 'MassGenix Project'
+        const projectTitle = ch.premium_content_projects?.title || 'MassGenix Project'
 
         const blueprint = await runChapterBlueprintFlow({
-            chapterTitle: (chapter as any).title,
-            chapterDescription: (chapter as any).summary || '',
+            chapterTitle: ch.title,
+            chapterDescription: ch.summary || '',
             ebookTopic: projectTitle,
             context: {
                 companyName: 'MassGenix',
-                niche: 'Digital Marketing'
+                niche: 'Digital Marketing',
+                targetAudience: '',
+                problemSolved: '',
+                offering: '',
+                differential: ''
             },
             language: 'Español'
         })
@@ -57,8 +68,8 @@ export async function generateChapterBlueprintAction(chapterId: string) {
 
         // 3. Insert Blocks as Pending
         const blocksToInsert = blueprint.data.blocks.map((b, idx) => ({
-            project_id: (chapter as any).premium_project_id,
-            chapter_id: (chapter as any).id,
+            project_id: ch.premium_project_id,
+            chapter_id: ch.id,
             index: idx,
             type: b.type,
             status: 'Pending',
@@ -66,19 +77,19 @@ export async function generateChapterBlueprintAction(chapterId: string) {
         }))
 
         const { error: blockError } = await (supabase
-            .from('content_blocks') as any)
+            .from('content_blocks') as unknown as SafeInsertBuilder<'content_blocks'>)
             .insert(blocksToInsert)
 
         if (blockError) {
             console.error("Blueprint insert error:", blockError)
-            return { success: false, error: blockError.message }
+            return { success: false, error: 'Failed to insert blocks' }
         }
 
-        revalidatePath(`/premium-forge/${(chapter as any).premium_project_id}`)
+        revalidatePath(`/premium-forge/${ch.premium_project_id}`)
         return { success: true, count: blocksToInsert.length }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Blueprint generation fatal error:", error)
-        return { success: false, error: error.message || "Unknown error" }
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
     }
 }
 
@@ -90,37 +101,43 @@ export async function generateBlockContentAction(blockId: string) {
 
         // 1. Fetch block with its project safely
         const { data: block, error: blockError } = await (supabase
-            .from('content_blocks')
+            .from('content_blocks') as unknown as SafeSelectBuilder<'content_blocks'>)
             .select(`
                 *,
                 premium_content_projects!inner (*)
             `)
             .eq('id', blockId)
-            .single() as any)
+            .single()
 
-        if (blockError || !block) {
+        const blk = block as any
+
+        if (blockError || !blk) {
             console.error("Block fetch error:", blockError)
             return { success: false, error: "Block not found" }
         }
 
         // Update status to Generating
         await (supabase
-            .from('content_blocks') as any)
+            .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
             .update({ status: 'Generating' })
             .eq('id', blockId)
 
-        console.log("Running block generation for:", blockId, "type:", block.type)
+        console.log("Running block generation for:", blockId, "type:", blk.type)
 
         // 2. Run Atomic Generation
-        const ebookTitle = block.premium_content_projects?.title || 'MassGenix Project'
+        const ebookTitle = blk.premium_content_projects?.title || 'MassGenix Project'
 
         const genResult = await runBlockGenerationFlow({
-            blockType: block.type,
+            blockType: blk.type,
             chapterTitle: ebookTitle,
             ebookTopic: ebookTitle,
             context: {
                 companyName: 'MassGenix',
-                niche: 'Digital Marketing'
+                niche: 'Digital Marketing',
+                targetAudience: '',
+                problemSolved: '',
+                offering: '',
+                differential: ''
             },
             language: 'Español'
         })
@@ -129,7 +146,7 @@ export async function generateBlockContentAction(blockId: string) {
 
         // 3. Update DB with content
         const { error: updateError } = await (supabase
-            .from('content_blocks') as any)
+            .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
             .update({
                 content_json: genResult.data.content || {},
                 image_url: genResult.data.image_prompt || null,
@@ -139,7 +156,7 @@ export async function generateBlockContentAction(blockId: string) {
 
         if (updateError) {
             console.error("Database update error (Block content):", updateError)
-            return { success: false, error: updateError.message }
+            return { success: false, error: 'Database update failed' }
         }
 
         console.log("Database updated with content for block:", blockId)
@@ -152,7 +169,7 @@ export async function generateBlockContentAction(blockId: string) {
                 console.log("Image generation success. New URL:", finalImageUrl)
 
                 const { error: imgUpdateError } = await (supabase
-                    .from('content_blocks') as any)
+                    .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
                     .update({
                         image_url: finalImageUrl,
                         status: 'Completed'
@@ -165,28 +182,33 @@ export async function generateBlockContentAction(blockId: string) {
             } catch (imgError) {
                 console.error("Image generation failed", imgError)
                 await (supabase
-                    .from('content_blocks') as any)
+                    .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
                     .update({ status: 'Error' })
                     .eq('id', blockId)
             }
         }
 
-        revalidatePath(`/premium-forge/${block.project_id}`)
+        revalidatePath(`/premium-forge/${blk.project_id}`)
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Block generation fatal error:", error)
-        return { success: false, error: error.message || "Unknown error" }
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
     }
 }
 
-export async function updateBlockContentAction(blockId: string, updates: { content_json?: any, html_override?: string, index?: number }) {
+export async function updateBlockContentAction(blockId: string, updates: { content_json?: unknown, html_override?: string, index?: number }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Not authenticated")
 
+    // We use cast to any on updates because standard update strictly checks schema and content_json is Json
+    // SafeUpdateBuilder won't help if the input type isn't matching Update<T> exactly without casting
+    // But we avoid 'as any' on the builder itself by using SafeUpdateBuilder logic or just explicit cast.
+
+    // Using SafeUpdateBuilder to ensure 'never' is avoided
     const { error } = await (supabase
-        .from('content_blocks') as any)
-        .update(updates)
+        .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
+        .update(updates as any) // Cast updates payload to matches internal expectation if needed, or refine Update type.
         .eq('id', blockId)
 
     if (error) throw error

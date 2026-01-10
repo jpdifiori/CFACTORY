@@ -18,16 +18,23 @@ import { publishContentAction } from '@/app/actions/publish'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
 
+import { SafeSelectBuilder, SafeUpdateBuilder, SafeInsertBuilder } from '@/utils/supabaseSafe'
+
+type Project = Database['public']['Tables']['project_master']['Row']
+type ContentQueueItem = Database['public']['Tables']['content_queue']['Row']
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+type Profile = Database['public']['Tables']['profiles']['Row']
+
 export default function ProjectPage() {
     const params = useParams()
     const projectId = params.id as string
     const supabase = createClient()
     const router = useRouter()
 
-    const [project, setProject] = useState<any>(null)
-    const [items, setItems] = useState<any[]>([])
-    const [campaigns, setCampaigns] = useState<Database['public']['Tables']['campaigns']['Row'][]>([])
-    const [profile, setProfile] = useState<any>(null)
+    const [project, setProject] = useState<Project | null>(null)
+    const [items, setItems] = useState<ContentQueueItem[]>([])
+    const [campaigns, setCampaigns] = useState<Campaign[]>([])
+    const [profile, setProfile] = useState<Profile | null>(null)
 
     const { t, lang } = useLanguage()
     const { setTitle } = useTitle()
@@ -37,7 +44,7 @@ export default function ProjectPage() {
     const [isScheduling, setIsScheduling] = useState(false)
     const [isSavingProfile, setIsSavingProfile] = useState(false)
     const [generationModalOpen, setGenerationModalOpen] = useState(false)
-    const [activeCampaign, setActiveCampaign] = useState<any>(null)
+    const [activeCampaign, setActiveCampaign] = useState<Campaign | null>(null)
 
     // Filter State
     const [statusFilter, setStatusFilter] = useState('All')
@@ -45,7 +52,7 @@ export default function ProjectPage() {
     const [monthFilter, setMonthFilter] = useState('All')
 
     // Editor State
-    const [editingItem, setEditingItem] = useState<any | null>(null)
+    const [editingItem, setEditingItem] = useState<ContentQueueItem | null>(null)
 
     useEffect(() => {
         if (projectId) {
@@ -59,7 +66,7 @@ export default function ProjectPage() {
     // Memoized Months
     const availableMonths = React.useMemo(() => {
         const months = items.map(item => {
-            const date = item.scheduled_at ? new Date(item.scheduled_at) : new Date(item.created_at)
+            const date = item.scheduled_at ? new Date(item.scheduled_at) : (item.created_at ? new Date(item.created_at) : new Date())
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         })
         return Array.from(new Set(months)).sort().reverse()
@@ -71,7 +78,7 @@ export default function ProjectPage() {
             const matchesStatus = statusFilter === 'All' || item.status === statusFilter
             const matchesCampaign = campaignFilter === 'All' || item.campaign_id === campaignFilter
 
-            const itemDate = item.scheduled_at ? new Date(item.scheduled_at) : new Date(item.created_at)
+            const itemDate = item.scheduled_at ? new Date(item.scheduled_at) : (item.created_at ? new Date(item.created_at) : new Date())
             const itemMonthFormatted = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
             const matchesMonth = monthFilter === 'All' || itemMonthFormatted === monthFilter
 
@@ -83,10 +90,10 @@ export default function ProjectPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
             const { data } = await (supabase
-                .from('profiles')
+                .from('profiles') as unknown as SafeSelectBuilder<'profiles'>)
                 .select('*')
                 .eq('id', user.id)
-                .single() as any)
+                .single()
             if (data) setProfile(data)
         }
     }
@@ -95,12 +102,13 @@ export default function ProjectPage() {
         setIsSavingProfile(true)
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-            const { error } = await (supabase.from('profiles') as any)
-                .update({ schedule_config: newConfig })
+            // schedule_config might be JSON type in DB, so we cast to unknown then SafeUpdateBuilder
+            const { error } = await (supabase.from('profiles') as unknown as SafeUpdateBuilder<'profiles'>)
+                .update({ schedule_config: newConfig } as any) // Cast payload as any if types are strict on JSON
                 .eq('id', user.id)
 
             if (error) alert("Error saving schedule")
-            else setProfile({ ...profile, schedule_config: newConfig })
+            else setProfile(prev => prev ? { ...prev, schedule_config: newConfig } : null)
         }
         setIsSavingProfile(false)
     }
@@ -131,11 +139,11 @@ export default function ProjectPage() {
         if (!user) return
 
         const { data, error } = await (supabase
-            .from('project_master')
+            .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
             .select('*')
             .eq('id', projectId)
             .eq('user_id', user.id)
-            .single() as any)
+            .single()
 
         if (error) console.error('Error fetching project:', error)
         if (data) {
@@ -180,7 +188,7 @@ export default function ProjectPage() {
         if (data) setCampaigns(data)
     }
 
-    const openGenerationModal = (campaign: any) => {
+    const openGenerationModal = (campaign: Campaign) => {
         setActiveCampaign(campaign)
         setGenerationModalOpen(true)
     }
@@ -196,30 +204,27 @@ export default function ProjectPage() {
 
             const result = await generateContentAction({
                 context: {
-                    niche: activeCampaign.topic || project.niche_vertical,
-                    targetAudience: activeCampaign.target_orientation || project.target_audience,
-                    brandVoice: project.brand_voice,
-                    offering: project.description,
-                    companyName: project.app_name,
-                    differential: activeCampaign.differential || project.usp,
-                    problemSolved: activeCampaign.problem_solved || project.problem_solved,
+                    niche: activeCampaign.topic || project.niche_vertical || '',
+                    targetAudience: activeCampaign.target_orientation || project.target_audience || '',
+                    brandVoice: project.brand_voice || '',
+                    offering: project.description || '',
+                    companyName: project.app_name || '',
+                    differential: activeCampaign.differential || project.usp || '',
+                    problemSolved: activeCampaign.problem_solved || project.problem_solved || '',
                     strategyContext: {
-                        topic: activeCampaign.topic || project.niche_vertical,
-                        orientation: activeCampaign.target_orientation || project.target_audience,
-                        problem: activeCampaign.problem_solved || project.problem_solved,
-                        differential: activeCampaign.differential || project.usp
+                        topic: activeCampaign.topic || project.niche_vertical || '',
+                        orientation: activeCampaign.target_orientation || project.target_audience || '',
+                        problem: activeCampaign.problem_solved || project.problem_solved || '',
+                        differential: activeCampaign.differential || project.usp || ''
                     }
                 },
                 campaign: {
-                    id: activeCampaign.id,
-                    name: activeCampaign.name,
-                    objective: activeCampaign.objective,
-                    pillars: activeCampaign.pillars,
-                    cta: activeCampaign.cta,
-                    visual_style: activeCampaign.visual_style,
-                    mood: activeCampaign.mood,
-                    color_palette: activeCampaign.color_palette
-                } as any,
+                    ...activeCampaign,
+                    pillars: (activeCampaign.pillars as string[]) || [],
+                    visual_style: activeCampaign.visual_style || '',
+                    mood: activeCampaign.mood || '',
+                    color_palette: activeCampaign.color_palette || ''
+                } as unknown as Campaign, // Force cast to Campaign to satisfy strict Action type
                 config: {
                     count: quantity,
                     contentType: type,
@@ -243,7 +248,7 @@ export default function ProjectPage() {
                 scheduled_at: null // Will be auto-filled by scheduler
             }))
 
-            const { error: dbError } = await (supabase.from('content_queue') as any).insert(queueItems)
+            const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeInsertBuilder<'content_queue'>).insert(queueItems as any) // SafeInsertBuilder handles array insert if typed correctly, or cast data as any if structural mismatch exists but Builder is safe
             if (dbError) throw dbError
 
             await fetchContentQueue()
@@ -257,7 +262,7 @@ export default function ProjectPage() {
         }
     }
 
-    const handleEdit = (item: any) => {
+    const handleEdit = (item: ContentQueueItem) => {
         setEditingItem(item)
     }
 
@@ -275,7 +280,7 @@ export default function ProjectPage() {
         }))
 
         try {
-            const { error } = await (supabase.from('content_queue') as any)
+            const { error } = await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
                 .update({
                     gemini_output: newContent,
                     image_ai_prompt: imagePrompt
@@ -295,6 +300,8 @@ export default function ProjectPage() {
             alert(t.settings.error)
         }
     }
+
+
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
@@ -352,7 +359,7 @@ export default function ProjectPage() {
             {/* Scheduler & Settings */}
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 pt-8 border-t border-white/5">
                 <SchedulerSettings
-                    config={profile?.schedule_config}
+                    config={(profile as any)?.schedule_config}
                     onSave={handleSaveSchedule}
                     loading={isSavingProfile}
                 />
@@ -433,7 +440,7 @@ export default function ProjectPage() {
                                 onEdit={handleEdit}
                                 onStatusUpdate={(id, status) => {
                                     setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
-                                    (supabase.from('content_queue') as any).update({ status }).eq('id', id).then()
+                                    (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status as any }).eq('id', id).then()
                                 }}
                                 onPublish={handlePublish}
                             />

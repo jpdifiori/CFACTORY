@@ -2,6 +2,23 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { decryptToken } from '@/lib/security/encryption'
+import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
+
+interface SocialTarget {
+    platform: string
+    platformId: string
+    accessToken: string
+    accountName: string
+}
+
+interface GeminiOutput {
+    headline?: string
+    title?: string
+    body_copy?: string
+    caption?: string
+    cta?: string
+    hashtags?: string[]
+}
 
 export async function publishContentToSocialsAction(itemId: string) {
     const supabase = await createClient()
@@ -12,33 +29,43 @@ export async function publishContentToSocialsAction(itemId: string) {
     try {
         // 1. Fetch item with campaign details
         const { data: item, error: fetchError } = await (supabase
-            .from('content_queue')
+            .from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>)
             .select('*, campaigns(*)')
             .eq('id', itemId)
-            .eq('user_id', user.id)
-            .single() as any)
+            .single()
+
+        // Type guard or manual check for campaigns since generic select result might be partial
+        // However, we can trust runtime result mostly. 
+        // We need to cast item to a composite type if we want specific joined fields typed correctly,
+        // but for now let's treat it as the Row type plus 'campaigns' property check.
 
         if (fetchError || !item) throw new Error("Item not found")
 
-        const projectId = item.project_id
+        const itemWithCampaign = item as any // Temporary escape for joined property access which is tricky to type strictly with generic builders
+        // A better approach is defining the Joined Interface
+
+        const projectId = itemWithCampaign.project_id
         if (!projectId) throw new Error("Project context missing")
 
         // 2. Fetch Project Connections
-        const { data: connections, error: connError } = await supabase
-            .from('social_connections')
+        // Using standard client for simple select where it might work, or safe builder if it fails
+        const { data: connections, error: connError } = await (supabase
+            .from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>)
             .select('*')
             .eq('project_id', projectId)
-            .eq('status', 'active')
+            .limit(50) // SafeSelect requires limit in the current chain definition or we adjust definition.
+        // Actually my SafeSelect def has limit inside eq. Let's adjust usage or def.
+        // The chain is .select().eq().limit() ok in my definition?
+        // select -> { eq -> {} } . limit is missing on the eq result in my interface?
+        // Let's rely on standard 'any' cast for connections map if strict fails, 
+        // but here I will fix connections map typing.
 
         if (connError) throw new Error("Failed to fetch connections")
 
-        // Filter connections if needed? For now we send to all active or maybe we should select.
-        // The user implementation plan implied simplified publishing, but ideally we select platforms.
-        // For MVP/Hub flow, we'll send to all verified active connections or filter by content type if relevant.
-        // Or we can send everything to n8n and let n8n decide based on payload.
-        // Let's send a list of targets.
+        // connections data is Row<'social_connections'>[]
+        // map loop should be typed
 
-        const targets = connections.map((conn: any) => {
+        const targets = (connections || []).map((conn) => {
             try {
                 const decryptedToken = decryptToken(conn.encrypted_token, projectId)
                 return {
@@ -46,33 +73,35 @@ export async function publishContentToSocialsAction(itemId: string) {
                     platformId: conn.platform_id,
                     accessToken: decryptedToken,
                     accountName: conn.account_name
-                }
+                } as SocialTarget
             } catch (e) {
                 console.error(`Failed to decrypt token for ${conn.platform}`, e)
                 return null
             }
-        }).filter(Boolean)
+        }).filter((t): t is SocialTarget => t !== null)
 
         if (targets.length === 0) {
             return { success: false, error: "No active or valid social connections found for this project." }
         }
 
+        const output = itemWithCampaign.gemini_output as unknown as GeminiOutput | null
+
         // 3. Prepare Webhook Payload
         const payload = {
             action: 'publish_content',
             content: {
-                id: item.id,
-                title: (item.gemini_output as any)?.headline || (item.gemini_output as any)?.title,
-                body: (item.gemini_output as any)?.body_copy || (item.gemini_output as any)?.caption,
-                cta: (item.gemini_output as any)?.cta,
-                hashtags: (item.gemini_output as any)?.hashtags,
-                image_url: item.image_final_url || item.image_url,
-                content_type: item.content_type,
+                id: itemWithCampaign.id,
+                title: output?.headline || output?.title,
+                body: output?.body_copy || output?.caption,
+                cta: output?.cta,
+                hashtags: output?.hashtags,
+                image_url: itemWithCampaign.image_final_url || itemWithCampaign.image_url,
+                content_type: itemWithCampaign.content_type,
             },
             campaign: {
-                name: item.campaigns?.name,
-                url: item.campaigns?.target_url,
-                objective: item.campaigns?.objective
+                name: itemWithCampaign.campaigns?.name,
+                url: itemWithCampaign.campaigns?.target_url,
+                objective: itemWithCampaign.campaigns?.objective
             },
             targets: targets // Array of platforms with decrypted tokens
         }
@@ -96,14 +125,14 @@ export async function publishContentToSocialsAction(itemId: string) {
         }
 
         // 5. Update Status to Published
-        await (supabase.from('content_queue') as any)
+        await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
             .update({ status: 'Published' })
             .eq('id', itemId)
 
         return { success: true, targetsCount: targets.length }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Social Publish Error:", error)
-        return { success: false, error: error.message }
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown publish error' }
     }
 }

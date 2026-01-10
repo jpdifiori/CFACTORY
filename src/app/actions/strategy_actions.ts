@@ -83,7 +83,7 @@ export async function calculateStrategyAction(
             - START YOUR RESPONSE WITH '{' AND END WITH '}'.
         `;
 
-        const response = await generateSearchJSON<any>(prompt);
+        const response = await generateSearchJSON<StrategyResponse>(prompt);
         const result = response.data;
         const usage = response.usage;
 
@@ -98,26 +98,24 @@ export async function calculateStrategyAction(
             usage.candidates_tokens
         );
 
+        // result is strictly typed now, assuming the API returns StrategyResponse structure
+        // We might need to validate it but for now we trust the generic
+
         if (!result || !result.scorecard) {
             throw new Error("AI returned an incomplete strategy structure.");
         }
 
-        return {
-            success: true,
-            seo_card: result.seo_card || { title: 'SEO', description: 'No data', keywords: [] },
-            viral_card: result.viral_card || { title: 'Viral', description: 'No data', keywords: [] },
-            authority_card: result.authority_card || { title: 'Authority', description: 'No data', keywords: [] },
-            scorecard: result.scorecard
-        };
-    } catch (error: any) {
+        return result;
+    } catch (error: unknown) {
         console.error("Strategy Action Error:", error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return {
             success: false,
-            seo_card: { title: 'Error', description: 'Failed to generate strategy', keywords: [] } as any,
-            viral_card: { title: 'Error', description: error.message, keywords: [] } as any,
-            authority_card: { title: 'Error', description: 'Please try again', keywords: [] } as any,
-            scorecard: { viral_potential: 0, projected_reach: '0', reasoning: error.message } as any,
-            error: error.message
+            seo_card: { title: 'Error', description: 'Failed to generate strategy', keywords: [] },
+            viral_card: { title: 'Error', description: errorMessage, keywords: [] },
+            authority_card: { title: 'Error', description: 'Please try again', keywords: [] },
+            scorecard: { viral_potential: 0, projected_reach: '0', reasoning: errorMessage },
+            error: errorMessage
         };
     }
 }
@@ -173,12 +171,12 @@ export async function generateInstructionsAction(
             success: true,
             content: result.instructions
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Generate Instructions Error:", error);
         return {
             success: false,
             content: '',
-            error: error.message
+            error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
 }

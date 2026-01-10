@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { decryptToken, encryptToken } from '@/lib/security/encryption';
 import { createClient } from '@/utils/supabase/server';
 import { refreshTikTokToken } from '@/lib/social/tiktok';
+import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe';
 
 // Security: Use a shared secret to prevent unauthorized access to this endpoint
 const N8N_API_KEY = process.env.N8N_API_KEY;
@@ -35,8 +36,7 @@ export async function POST(req: NextRequest) {
 
             // Fetch connection to check expiry and get refresh token
             let { data: connection } = await (supabase
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .from('social_connections') as any)
+                .from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>)
                 .select('*')
                 .eq('project_id', project_id)
                 .eq('platform', 'tiktok')
@@ -46,8 +46,7 @@ export async function POST(req: NextRequest) {
             // Fallback: If not found by encrypted_token, maybe it was recently refreshed and n8n has old data?
             if (!connection) {
                 const { data: fallbackConn } = await (supabase
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .from('social_connections') as any)
+                    .from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>)
                     .select('*')
                     .eq('project_id', project_id)
                     .eq('platform', 'tiktok')
@@ -62,14 +61,15 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            if (connection) {
+            if (connection && connection.token_expiry) {
                 const expiryDate = new Date(connection.token_expiry);
                 const now = new Date();
 
                 // If expired or expires in less than 10 minutes
                 if (expiryDate.getTime() - now.getTime() < 10 * 60 * 1000) {
                     console.log('TikTok token expired or near expiry, refreshing...');
-                    const refreshToken = connection.metadata?.refresh_token;
+                    const metadata = (connection.metadata as Record<string, unknown>) || {};
+                    const refreshToken = metadata.refresh_token as string;
 
                     if (refreshToken) {
                         const refreshData = await refreshTikTokToken(refreshToken);
@@ -82,13 +82,12 @@ export async function POST(req: NextRequest) {
 
                             // Update database with new token
                             await (supabase
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                .from('social_connections') as any)
+                                .from('social_connections') as unknown as SafeUpdateBuilder<'social_connections'>)
                                 .update({
                                     encrypted_token: finalEncryptedToken,
                                     token_expiry: newExpiry.toISOString(),
                                     metadata: {
-                                        ...connection.metadata,
+                                        ...metadata,
                                         refresh_token: refreshData.refresh_token,
                                         refresh_expires_in: refreshData.refresh_expires_in
                                     },

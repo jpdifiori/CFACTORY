@@ -15,7 +15,12 @@ import {
     testSocialConnectionAction,
     deleteSocialConnectionAction
 } from '@/app/actions/socialActions'
+import { Database } from '@/types/database.types'
+import { SafeSelectBuilder } from '@/utils/supabaseSafe'
 
+type SocialConnection = Database['public']['Tables']['social_connections']['Row']
+type Project = Database['public']['Tables']['project_master']['Row']
+type PlatformDef = typeof PLATFORMS[number]
 const PLATFORMS = [
     { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-500/10' },
     { id: 'facebook', name: 'Facebook', icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-600/10' },
@@ -34,10 +39,10 @@ export default function ConnectionsPage() {
     const router = useRouter()
 
     const [loading, setLoading] = useState(true)
-    const [connections, setConnections] = useState<any[]>([])
-    const [project, setProject] = useState<any>(null)
+    const [connections, setConnections] = useState<SocialConnection[]>([])
+    const [project, setProject] = useState<Project | null>(null)
     const [showModal, setShowModal] = useState(false)
-    const [selectedPlatform, setSelectedPlatform] = useState<any>(null)
+    const [selectedPlatform, setSelectedPlatform] = useState<PlatformDef | null>(null)
 
     // Form State
     const [formData, setFormData] = useState({
@@ -78,8 +83,8 @@ export default function ConnectionsPage() {
         setLoading(true)
         try {
             const [connRes, projRes] = await Promise.all([
-                supabase.from('social_connections').select('*').eq('project_id', projectId) as any,
-                supabase.from('project_master').select('*').eq('id', projectId).single() as any
+                (supabase.from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>).select('*').eq('project_id', projectId),
+                (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
             ])
 
             if (connRes.data) setConnections(connRes.data)
@@ -93,7 +98,7 @@ export default function ConnectionsPage() {
         }
     }
 
-    const handleConnectClick = async (platform: any) => {
+    const handleConnectClick = async (platform: PlatformDef) => {
         if (platform.id === 'instagram') {
             const clientId = process.env.NEXT_PUBLIC_FB_APP_ID
             if (!clientId) {
@@ -163,11 +168,12 @@ export default function ConnectionsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!selectedPlatform) return
         setSubmitting(true)
         try {
             const res = await saveSocialConnectionAction({
                 projectId,
-                platform: selectedPlatform.id,
+                platform: selectedPlatform.id as Database['public']['Tables']['social_connections']['Row']['platform'],
                 ...formData
             })
 

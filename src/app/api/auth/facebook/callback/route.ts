@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { encryptToken } from '@/lib/security/encryption';
+import { SafeInsertBuilder } from '@/utils/supabaseSafe';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID;
 const FB_APP_SECRET = process.env.FB_APP_SECRET;
@@ -87,9 +88,9 @@ export async function GET(req: NextRequest) {
             if (page.instagram_business_account) {
                 const encryptedToken = encryptToken(longLivedToken, projectId);
 
+                // Using SafeInsertBuilder specifically typing the table wrapper
                 const { data: connection, error: upsertError } = await (supabase
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .from('social_connections') as any)
+                    .from('social_connections') as unknown as SafeInsertBuilder<'social_connections'>)
                     .upsert({
                         project_id: projectId,
                         user_id: user.id,
