@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { Database } from '@/types/database.types'
-import { Plus, ArrowRight, Activity, Users, MessageSquare } from 'lucide-react'
+import { Plus, ArrowRight, Activity, Users } from 'lucide-react'
 
 type Project = Database['public']['Tables']['project_master']['Row']
 
@@ -16,11 +16,7 @@ export default function AllProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        fetchProjects()
-    }, [])
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
@@ -38,7 +34,11 @@ export default function AllProjectsPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [supabase])
+
+    useEffect(() => {
+        fetchProjects()
+    }, [fetchProjects])
 
     if (loading) {
         return (

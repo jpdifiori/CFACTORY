@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { ArrowLeft, Rocket, Building2, Target, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Rocket, Building2, Target, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { useLanguage } from '@/context/LanguageContext'

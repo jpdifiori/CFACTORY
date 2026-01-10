@@ -139,29 +139,7 @@ export async function generateChapterAction(chapterId: string) {
         .eq('id', ch.premium_content_projects.project_id)
         .single()
 
-    // 3. Fetch previous summaries for context
-    const { data: previousChapters } = await (supabase
-        .from('content_chapters') as unknown as SafeSelectBuilder<'content_chapters'>)
-        .select('summary') // SafeSelect strictly returns Row defined cols.
-        .eq('premium_project_id', ch.premium_project_id)
-    // .lt is missing in simple SafeSelectBuilder. We can trust normal Select for this advanced case or extend SafeSelect.
-    // Or simply failover to 'any' for the Builder if needed, but we wanted to avoid 'any'.
-    // Let's rely on standard client for complex queries where possible, but if 'never' happens we need Safe.
-    // Assuming lt() works on standard client if we don't cast. If it breaks, we need SafeSelectBuilderWithFilters.
-    // For now let's assume standard client works for 'lt' unless proven otherwise (it broke for 'update' mostly).
-    // Wait, 'select' generally inferred correctly. It was 'update' that broke.
-    // So I will revert to standard client for this query but cast result.
-
-    // Actually, let's use standard client here:
-
-    const { data: prevChaps } = await supabase
-        .from('content_chapters')
-        .select('summary') as any; // Still using 'any' on result is bad.
-    // Let's use standard supabase client but cast result to known type.
-
-    // ... (rest of logic)
-
-    // Re-doing the previousChapters query cleanly:
+    // 3. Fetch previous summaries for context (Optimized)
     const { data: previousChaptersRaw } = await supabase
         .from('content_chapters')
         .select('summary')
@@ -169,7 +147,7 @@ export async function generateChapterAction(chapterId: string) {
         .lt('chapter_index', ch.chapter_index)
         .order('chapter_index', { ascending: true })
 
-    const previousSummaries = (previousChaptersRaw as unknown as { summary: string | null }[] || []).map((c) => c.summary).filter(Boolean).join('\n') || ''
+    const previousSummaries = ((previousChaptersRaw as unknown as { summary: string | null }[]) || []).map((c) => c.summary).filter(Boolean).join('\n') || ''
 
     await (supabase
         .from('content_chapters') as unknown as SafeUpdateBuilder<'content_chapters'>)
@@ -273,16 +251,15 @@ export async function generateForgeWizardOptionsAction(topic: string, projectId:
     return options
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateProjectDesignAction(projectId: string, designConfig: Json) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Not authenticated")
 
-    // design_config missing from Update type in generated types, forcing cast
+    // design_config missing from Update type in generated types, using string generic to bypass strict Table check while avoiding 'any'
     const { error } = await (supabase
-        .from('premium_content_projects') as unknown as SafeUpdateBuilder<'premium_content_projects'>)
-        .update({ design_config: designConfig } as any)
+        .from('premium_content_projects') as unknown as SafeUpdateBuilder<string>)
+        .update({ design_config: designConfig })
         .eq('id', projectId)
 
     if (error) throw error

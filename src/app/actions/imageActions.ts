@@ -60,7 +60,7 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
                 // Upload base64 to Supabase Storage
                 const fileName = `${targetFolder}/${itemId}-${Date.now()}.png`;
-                const { data, error: uploadError } = await supabase.storage
+                const { error: uploadError } = await supabase.storage
                     .from('project-images')
                     .upload(fileName, Buffer.from(base64Data, 'base64'), {
                         contentType: 'image/png',
@@ -99,7 +99,7 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 
         // 5. Automatic Smart Placement or Custom Text Baking
         let finalDisplayUrl = imageUrl;
-        let overlayText = params?.customText || params?.imageText;
+        const overlayText = params?.customText || params?.imageText;
         let overlayStyle = params?.customStyle || null;
 
         if (imageUrl && overlayText) {
@@ -354,7 +354,7 @@ export async function bakeImageWithTextAction(itemId: string, config: {
         const targetFolder = item.project_id || user.id;
         const fileName = `${targetFolder}/${itemId}-baked-${Date.now()}.jpg`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
             .from('project-images')
             .upload(fileName, bakedBuffer, {
                 contentType: 'image/jpeg',

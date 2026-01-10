@@ -8,10 +8,6 @@ import { SupabaseClient } from '@supabase/supabase-js'
 type SocialPlatform = Database['public']['Tables']['social_connections']['Row']['platform']
 type Json = Database['public']['Tables']['project_master']['Row']['safety_zones']
 import { SafeInsertBuilder, SafeSelectBuilder, SafeUpdateBuilder, SafeDeleteBuilder } from '@/utils/supabaseSafe'
-type SocialRow = Database['public']['Tables']['social_connections']['Row']
-type SocialInsert = Database['public']['Tables']['social_connections']['Insert']
-type SocialUpdate = Database['public']['Tables']['social_connections']['Update']
-type ProjectUpdate = Database['public']['Tables']['project_master']['Update']
 
 // Safe interfaces were removed in favor of SupabaseClient<Database> strong typing
 

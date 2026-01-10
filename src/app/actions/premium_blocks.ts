@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { generateImageFal } from '@/lib/ai/fal'
 import { runChapterBlueprintFlow, runBlockGenerationFlow } from '@/lib/ai/flows'
 import { revalidatePath } from 'next/cache'
+import { BlockType } from '@/lib/ai/block-schemas'
 
 /**
  * Triggers real image generation for a block
@@ -17,6 +18,26 @@ async function callFalAiFlux(prompt: string): Promise<string> {
 }
 
 import { SafeInsertBuilder, SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
+import { Database } from '@/types/database.types'
+
+type ProjectRow = Database['public']['Tables']['premium_content_projects']['Row']
+type ChapterRow = Database['public']['Tables']['content_chapters']['Row']
+// content_blocks missing in types, defining manually based on usage
+type BlockRow = {
+    id: string
+    created_at: string
+    project_id: string
+    chapter_id: string
+    index: number
+    type: BlockType
+    status: string
+    content_json: any
+    image_url: string | null
+    premium_project_id?: string // joined usage? no, referenced via relation
+}
+
+type ChapterWithProject = ChapterRow & { premium_content_projects: ProjectRow }
+type BlockWithProject = BlockRow & { premium_content_projects: ProjectRow }
 
 // ...
 
@@ -37,7 +58,7 @@ export async function generateChapterBlueprintAction(chapterId: string) {
             .single()
 
         // Cast chapter to include joined Project data
-        const ch = chapter as any
+        const ch = chapter as unknown as ChapterWithProject
 
         if (chapterError || !ch) {
             console.error("Chapter fetch error:", chapterError)
@@ -109,7 +130,7 @@ export async function generateBlockContentAction(blockId: string) {
             .eq('id', blockId)
             .single()
 
-        const blk = block as any
+        const blk = block as unknown as BlockWithProject
 
         if (blockError || !blk) {
             console.error("Block fetch error:", blockError)
@@ -208,7 +229,7 @@ export async function updateBlockContentAction(blockId: string, updates: { conte
     // Using SafeUpdateBuilder to ensure 'never' is avoided
     const { error } = await (supabase
         .from('content_blocks') as unknown as SafeUpdateBuilder<'content_blocks'>)
-        .update(updates as any) // Cast updates payload to matches internal expectation if needed, or refine Update type.
+        .update(updates as Record<string, unknown>)
         .eq('id', blockId)
 
     if (error) throw error

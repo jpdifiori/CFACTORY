@@ -24,27 +24,27 @@ interface SelectFilterBuilder<R> {
     ) => Promise<TResult1 | TResult2>
 }
 
-export interface SafeSelectBuilder<T extends TableName | string, R = T extends TableName ? Row<T> : any> {
+export interface SafeSelectBuilder<T extends TableName | string, R = T extends TableName ? Row<T> : Record<string, unknown>> {
     select: (query?: string) => SelectFilterBuilder<R>
 }
 
-interface UpdateFilterBuilder {
-    eq: (col: string, val: unknown) => UpdateFilterBuilder
+interface UpdateFilterBuilder<R> {
+    eq: (col: string, val: unknown) => UpdateFilterBuilder<R>
     select: () => {
-        single: () => Promise<{ data: any; error: unknown }>
-        then: <TResult1 = { data: any[] | null; error: unknown }, TResult2 = never>(
-            onfulfilled?: ((value: { data: any[] | null; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
+        single: () => Promise<{ data: R | null; error: unknown }>
+        then: <TResult1 = { data: R[] | null; error: unknown }, TResult2 = never>(
+            onfulfilled?: ((value: { data: R[] | null; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
             onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null | undefined
         ) => Promise<TResult1 | TResult2>
-    } // Minimal support
+    }
     then: <TResult1 = { data: null; error: unknown }, TResult2 = never>(
         onfulfilled?: ((value: { data: null; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null | undefined,
         onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null | undefined
     ) => Promise<TResult1 | TResult2>
 }
 
-export interface SafeUpdateBuilder<T extends TableName | string> {
-    update: (data: T extends TableName ? Update<T> : any) => UpdateFilterBuilder
+export interface SafeUpdateBuilder<T extends TableName | string, R = T extends TableName ? Row<T> : Record<string, unknown>> {
+    update: (data: T extends TableName ? Update<T> : Record<string, unknown>) => UpdateFilterBuilder<R>
 }
 
 interface InsertFilterBuilder<R> {
@@ -61,9 +61,9 @@ interface InsertFilterBuilder<R> {
     ) => Promise<TResult1 | TResult2>
 }
 
-export interface SafeInsertBuilder<T extends TableName | string, R = T extends TableName ? Row<T> : any> {
-    insert: (data: T extends TableName ? (Insert<T> | Insert<T>[]) : any) => InsertFilterBuilder<R>
-    upsert: (data: T extends TableName ? (Insert<T> | Insert<T>[]) : any, options?: { onConflict?: string, ignoreDuplicates?: boolean }) => InsertFilterBuilder<R>
+export interface SafeInsertBuilder<T extends TableName | string, R = T extends TableName ? Row<T> : Record<string, unknown>> {
+    insert: (data: T extends TableName ? (Insert<T> | Insert<T>[]) : (Record<string, unknown> | Record<string, unknown>[])) => InsertFilterBuilder<R>
+    upsert: (data: T extends TableName ? (Insert<T> | Insert<T>[]) : (Record<string, unknown> | Record<string, unknown>[]), options?: { onConflict?: string, ignoreDuplicates?: boolean }) => InsertFilterBuilder<R>
 }
 
 interface DeleteFilterBuilder {

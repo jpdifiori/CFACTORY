@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { addDays, setHours, setMinutes, startOfHour, isBefore, addMinutes } from 'date-fns'
+import { addDays, setHours, setMinutes, isBefore, addMinutes } from 'date-fns'
 
 import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
 
@@ -58,7 +58,7 @@ export async function autoFillScheduleAction(projectId: string) {
         }
 
         const { data: items, error: fetchError } = await (supabase
-            .from('content_queue') as unknown as ComplexContentQuery)
+            .from('content_queue') as unknown as { select: (q: string) => any })
             .select('id, scheduled_at')
             .eq('project_id', projectId)
             .eq('user_id', user.id)
@@ -85,7 +85,7 @@ export async function autoFillScheduleAction(projectId: string) {
 
                 for (const slotTime of slots) {
                     const [h, m] = slotTime.split(':').map(Number)
-                    let slotDate = setMinutes(setHours(currentPointer, h), m)
+                    const slotDate = setMinutes(setHours(currentPointer, h), m)
 
                     // If this slot is still in the future relative to our pointer progress
                     if (isBefore(currentPointer, slotDate)) {

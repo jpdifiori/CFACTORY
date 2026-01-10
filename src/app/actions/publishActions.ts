@@ -3,6 +3,14 @@
 import { createClient } from '@/utils/supabase/server'
 import { decryptToken } from '@/lib/security/encryption'
 import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
+import { Database } from '@/types/database.types'
+
+type ContentQueueRow = Database['public']['Tables']['content_queue']['Row']
+type CampaignRow = Database['public']['Tables']['campaigns']['Row']
+
+interface ContentItemWithCampaign extends ContentQueueRow {
+    campaigns: CampaignRow | null
+}
 
 interface SocialTarget {
     platform: string
@@ -41,7 +49,7 @@ export async function publishContentToSocialsAction(itemId: string) {
 
         if (fetchError || !item) throw new Error("Item not found")
 
-        const itemWithCampaign = item as any // Temporary escape for joined property access which is tricky to type strictly with generic builders
+        const itemWithCampaign = item as unknown as ContentItemWithCampaign
         // A better approach is defining the Joined Interface
 
         const projectId = itemWithCampaign.project_id
