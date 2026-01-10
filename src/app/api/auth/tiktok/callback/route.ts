@@ -102,7 +102,8 @@ export async function GET(req: NextRequest) {
 
         const encryptedToken = encryptToken(access_token, projectId);
 
-        const { data: connection, error: upsertError } = await (supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: upsertError } = await (supabase
             .from('social_connections') as any)
             .upsert({
                 project_id: projectId,
@@ -137,8 +138,9 @@ export async function GET(req: NextRequest) {
         response.cookies.delete('tiktok_code_verifier');
         return response;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('TikTok OAuth Callback Error:', error);
-        return NextResponse.redirect(`${req.nextUrl.origin}/projects/${projectId}/connections?error=${encodeURIComponent(error.message)}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.redirect(`${req.nextUrl.origin}/projects/${projectId}/connections?error=${encodeURIComponent(errorMessage)}`);
     }
 }
