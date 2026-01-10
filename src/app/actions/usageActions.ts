@@ -21,6 +21,7 @@ export async function recordAIUsageAction(
         console.log(`[USAGE] Recording ${tokens} tokens for ${feature} (Model: ${model}) for user ${user.id}`)
 
         // 1. Update Profile total
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: profileError } = await supabase.rpc('increment_user_tokens', {
             user_id: user.id,
             tokens_to_add: tokens
@@ -34,14 +35,18 @@ export async function recordAIUsageAction(
                 .from('profiles')
                 .select('total_tokens_used')
                 .eq('id', user.id)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .single() as any)
 
             if (fetchError) {
                 console.error('[USAGE] Failed to fetch profile for manual update:', fetchError.message)
             } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const current = (profile?.total_tokens_used || 0) as number
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { error: updateError } = await (supabase
                     .from('profiles') as any)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .update({ total_tokens_used: Number(current) + tokens } as any)
                     .eq('id', user.id)
 
@@ -57,6 +62,7 @@ export async function recordAIUsageAction(
 
         // 2. Log detailed usage (Don't let this block success of the operation)
         const { error: logError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('ai_usage_logs') as any)
             .insert({
                 user_id: user.id,
@@ -72,9 +78,9 @@ export async function recordAIUsageAction(
         }
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[USAGE] FATAL ERROR in recordAIUsageAction:', error)
-        return { success: false, error: error.message }
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
 
@@ -88,10 +94,11 @@ export async function getUserUsageAction() {
             .from('profiles')
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .single() as any)
 
         return profile
-    } catch (e) {
+    } catch {
         return null
     }
 }
