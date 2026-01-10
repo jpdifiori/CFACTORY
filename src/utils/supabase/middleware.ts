@@ -1,6 +1,13 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
 
+// Polyfill for Edge Runtime (Supabase dependency fix)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if (typeof process !== 'undefined' && !process.version) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (process as any).version = ''
+}
+
 export async function updateSession(request: NextRequest) {
     let response = NextResponse.next({
         request: {
