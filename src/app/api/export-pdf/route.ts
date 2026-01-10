@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
         const supabase = await createClient();
 
         // 1. Fetch Project & Blocks
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: project, error: projectError } = await (supabase
             .from('premium_content_projects')
             .select(`*, content_blocks(*)`)
             .eq('id', projectId)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .single() as any);
 
         if (projectError || !project) {

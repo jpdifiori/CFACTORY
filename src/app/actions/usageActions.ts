@@ -21,10 +21,11 @@ export async function recordAIUsageAction(
         console.log(`[USAGE] Recording ${tokens} tokens for ${feature} (Model: ${model}) for user ${user.id}`)
 
         // 1. Update Profile total
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // 1. Update Profile total
         const { error: profileError } = await supabase.rpc('increment_user_tokens', {
             user_id: user.id,
             tokens_to_add: tokens
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
 
         if (profileError) {
@@ -43,8 +44,8 @@ export async function recordAIUsageAction(
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const current = (profile?.total_tokens_used || 0) as number
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { error: updateError } = await (supabase
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .from('profiles') as any)
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .update({ total_tokens_used: Number(current) + tokens } as any)

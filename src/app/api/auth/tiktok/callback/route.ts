@@ -102,8 +102,8 @@ export async function GET(req: NextRequest) {
 
         const encryptedToken = encryptToken(access_token, projectId);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: upsertError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('social_connections') as any)
             .upsert({
                 project_id: projectId,
