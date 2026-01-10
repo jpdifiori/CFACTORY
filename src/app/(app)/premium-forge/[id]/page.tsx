@@ -8,21 +8,22 @@ import { generateChapterBlueprintAction, generateBlockContentAction, updateBlock
 import { generateDesignOverridesAction } from '@/app/actions/design_actions'
 import { BlockRenderer } from '@/components/premium-forge/BlockRenderer'
 import {
-    Loader2, BookOpen, CheckCircle2, AlertCircle, Play, Eye, Download,
-    Settings, Sparkles, ChevronLeft, Type, Palette, AlignLeft, Maximize2,
-    Bold, Italic, Save, X, Edit3, Type as TypeIcon, Underline, List,
-    ListOrdered, AlignCenter, AlignRight, AlignJustify, Eraser,
-    Layout, Smartphone, Monitor, FileText, ChevronRight, Layers,
-    Square, Droplets, Move, ZoomIn, Type as FontIcon, Wand2,
-    ImageIcon, Quote, Star, ArrowUp, ArrowDown, Trash2
+    Loader2, CheckCircle2,
+    Settings, Sparkles, ChevronLeft, Maximize2,
+    Bold, Italic, Save, X, Edit3, Underline, List,
+    ListOrdered,
+    Layout, Smartphone, Monitor, FileText,
+    Droplets, Type as FontIcon,
+    Download,
+    Palette, ChevronRight, Layers, BookOpen, Wand2
 } from 'lucide-react'
 import Link from 'next/link'
 import { THEMES, applyTheme, ThemeOverrides } from '@/lib/ai/templates'
 import { useLanguage } from '@/context/LanguageContext'
 
 // Debounce hook for persistence
-function useDebounce(value: any, delay: number) {
-    const [debouncedValue, setDebouncedValue] = useState(value)
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value)
     useEffect(() => {
         const handler = setTimeout(() => setDebouncedValue(value), delay)
         return () => clearTimeout(handler)
@@ -148,6 +149,7 @@ export default function PremiumProjectDetailPage() {
             .from('premium_content_projects')
             .select(`*, project_master(app_name)`)
             .eq('id', id as string)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .single() as any)
 
         const { data: c } = await supabase
@@ -157,8 +159,11 @@ export default function PremiumProjectDetailPage() {
             .order('chapter_index', { ascending: true })
 
         if (p) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setProject(p as any)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((p as any).design_config) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setOverrides(prev => ({ ...prev, ...((p as any).design_config as any) }))
             }
         }
@@ -228,6 +233,7 @@ export default function PremiumProjectDetailPage() {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleGenerateBlocks = async (blocksArray?: any[]) => {
         // If called by React onClick, blocksArray will be the synthetic event
         const targetBlocks = Array.isArray(blocksArray) ? blocksArray : blocks
@@ -256,6 +262,7 @@ export default function PremiumProjectDetailPage() {
                         .from('content_blocks')
                         .select('*')
                         .eq('id', block.id)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         .single() as any)
 
                     if (updatedBlock) {
@@ -464,6 +471,7 @@ export default function PremiumProjectDetailPage() {
         setIsApplyingMood(true)
         const result = await generateDesignOverridesAction(designMood)
         if (result.success && result.overrides) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setOverrides(prev => ({ ...prev, ...(result.overrides as any) }))
             setDesignMood('')
         }
