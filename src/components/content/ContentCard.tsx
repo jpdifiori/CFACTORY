@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { MoreHorizontal, Edit, Trash2, Download, ExternalLink, Calendar, CheckCircle2, Clock, AlertCircle, Send, Loader2 } from 'lucide-react'
+import { Edit, Trash2, Download, Calendar, CheckCircle2, Clock, Send, Loader2 } from 'lucide-react'
 import { Database } from '@/types/database.types'
 import { format } from 'date-fns'
 import { useLanguage } from '@/context/LanguageContext'
@@ -39,7 +39,6 @@ interface ExtendedItem extends Omit<ContentItem, 'gemini_output' | 'overlay_text
 export function ContentCard({ item: rawItem, onEdit, onStatusUpdate, onPublish }: ContentCardProps) {
     const item = rawItem as unknown as ExtendedItem
     const { t } = useLanguage()
-    const [showMenu, setShowMenu] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
 
     const statusColors = {
