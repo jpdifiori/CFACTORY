@@ -3,73 +3,93 @@
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
-import { User, Save, Loader2, Sparkles } from 'lucide-react'
+import { User, Loader2, Sparkles } from 'lucide-react'
 import { useTitle } from '@/context/TitleContext'
+import { Database } from '@/types/database.types'
+import { SupabaseClient } from '@supabase/supabase-js'
+
+interface ProfileData {
+    full_name: string | null
+    job_title: string | null
+}
 
 export default function SettingsPage() {
-    const supabase = createClient()
+    const supabase: SupabaseClient<Database> = createClient()
     const { t } = useLanguage()
     const { setTitle } = useTitle()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [profile, setProfile] = useState({
+    const [profile, setProfile] = useState<ProfileData>({
         full_name: '',
         job_title: ''
     })
 
     useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) return
+
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('full_name, job_title')
+                    .eq('id', user.id)
+                    .single()
+
+                if (error) {
+                    console.error('Supabase fetch error details:', {
+                        message: error.message,
+                        code: error.code,
+                        details: error.details,
+                        hint: error.hint
+                    })
+                    if (error.code === 'PGRST116') {
+                        console.warn('No profile found (PGRST116), using fallback defaults.')
+                        setProfile({
+                            full_name: user.user_metadata?.full_name || '',
+                            job_title: (user.user_metadata?.job_title || '')
+                        })
+                        return
+                    }
+                    throw error
+                }
+                if (data) setProfile(data as ProfileData)
+            } catch (error: unknown) {
+                console.error('Final catch in fetchProfile:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
         fetchProfile()
         setTitle(t.nav.settings)
         return () => setTitle('')
-    }, [setTitle, t.nav.settings])
-
-    const fetchProfile = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data, error } = await (supabase
-                .from('profiles')
-                .select('full_name, job_title')
-                .eq('id', user.id)
-                .single() as any)
-
-            if (error) {
-                console.error('Supabase fetch error details:', {
-                    message: error.message,
-                    code: error.code,
-                    details: error.details,
-                    hint: error.hint
-                })
-                if (error.code === 'PGRST116') {
-                    console.warn('No profile found (PGRST116), using fallback defaults.')
-                    setProfile({
-                        full_name: user.user_metadata?.full_name || '',
-                        job_title: (user.user_metadata?.job_title || '')
-                    })
-                    return
-                }
-                throw error
-            }
-            if (data) setProfile(data)
-        } catch (error: any) {
-            console.error('Final catch in fetchProfile:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
+    }, [setTitle, t.nav.settings, supabase])
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
         setSaving(true)
 
         try {
+            // Verify user is authenticated
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error('Not authenticated')
 
-            const { error } = await (supabase
-                .from('profiles') as any)
-                .update(profile)
+            const updates: Database['public']['Tables']['profiles']['Update'] = {
+                ...profile,
+                updated_at: new Date().toISOString(),
+            }
+
+            // Workaround for Supabase type inference issue where update accepts 'never'
+            // We cast to a compatible interface to avoid 'any'
+            interface UpdatableBuilder {
+                update: (data: unknown) => {
+                    eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>
+                }
+            }
+
+            const { error } = await (supabase.from('profiles') as unknown as UpdatableBuilder)
+                .update(updates)
                 .eq('id', user.id)
 
             if (error) throw error

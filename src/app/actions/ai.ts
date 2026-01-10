@@ -43,14 +43,22 @@ export async function generateContentAction(input: {
             .eq('campaign_id', input.campaign.id)
             .not('gemini_output', 'is', null)
             .order('created_at', { ascending: false })
-            .limit(10) as unknown as { data: { gemini_output: any }[] }
+            .limit(10)
 
-        const lastHeadlines = recentContent
-            ?.map((item) => {
-                const output = item.gemini_output as { headline?: string } | null
+        // Define expected output shape
+        interface GeminiOutput {
+            headline?: string
+            body_copy?: string
+        }
+
+        const typedRecentContent = recentContent as unknown as Pick<Database['public']['Tables']['content_queue']['Row'], 'gemini_output'>[] | null
+
+        const lastHeadlines = (typedRecentContent || [])
+            .map((item) => {
+                const output = item.gemini_output as unknown as GeminiOutput
                 return output?.headline
             })
-            .filter(Boolean) as string[] || []
+            .filter((h): h is string => typeof h === 'string' && h.length > 0)
 
         const { results, usage } = await generateDetailedFlow({
             ...input,
@@ -94,15 +102,22 @@ export async function generateCampaignIdeasAction(input: {
             .eq('campaign_id', input.campaignId)
             .not('gemini_output', 'is', null)
             .order('created_at', { ascending: false })
-            .limit(5) as unknown as { data: { gemini_output: any }[] }
+            .limit(5)
 
-        const recentSummaries = recentContent
-            ?.map((item) => {
-                const out = item.gemini_output as { headline?: string; body_copy?: string } | null
+        interface GeminiOutput {
+            headline?: string
+            body_copy?: string
+        }
+
+        const typedRecentContent = recentContent as unknown as Pick<Database['public']['Tables']['content_queue']['Row'], 'gemini_output'>[] | null
+
+        const recentSummaries = (typedRecentContent || [])
+            .map((item) => {
+                const out = item.gemini_output as unknown as GeminiOutput
                 if (!out?.headline) return null
                 return `${out.headline}: ${out.body_copy?.substring(0, 100)}...`
             })
-            .filter(Boolean) as string[] || []
+            .filter((s): s is string => typeof s === 'string')
 
         const response = await runIdeaGeneratorFlow({
             context: input.context,

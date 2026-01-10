@@ -31,8 +31,8 @@ export async function generateDesignOverridesAction(mood: string) {
 
         const result = await generateJSON(prompt);
         return { success: true, overrides: result };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error generating design overrides:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown design generation error' };
     }
 }
