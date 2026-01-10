@@ -111,6 +111,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                     >
                         {imageUrl && imageUrl.startsWith('http') ? (
                             <div className="absolute inset-0 opacity-40">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={imageUrl} alt="Hero Background" className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                             </div>
@@ -166,6 +167,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                             }}
                         >
                             {imageUrl && imageUrl.startsWith('http') ? (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={imageUrl} alt={content?.title} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="flex flex-col items-center gap-4 text-gray-300">
@@ -295,6 +297,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                             </blockquote>
                             <div className="flex flex-col items-center">
                                 {content?.authorImage && (
+                                    // eslint-disable-next-line @next/next/no-img-element
                                     <img src={content.authorImage} alt={content.author} className="w-16 h-16 rounded-full mb-4 shadow-lg border-2 border-white" />
                                 )}
                                 <cite

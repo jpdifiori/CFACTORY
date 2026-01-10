@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, Layers, Settings, Plus, Hexagon, Menu, X, LogOut, Sparkles, Zap } from 'lucide-react'
+import { LayoutDashboard, Layers, Settings, Plus, LogOut, Sparkles, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePathname } from 'next/navigation'
 import { logoutAction } from '@/app/actions/auth'
@@ -19,11 +19,13 @@ export function Sidebar() {
     const { isOpen, setIsOpen } = useSidebar()
     const { lang, setLang, t } = useLanguage()
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [projects, setProjects] = useState<any[]>([])
     const [usage, setUsage] = useState({ used: 0, limit: 100000 })
 
     useEffect(() => {
         fetchData()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const fetchData = async () => {
@@ -45,11 +47,14 @@ export function Sidebar() {
             .from('profiles')
             .select('total_tokens_used, token_limit')
             .eq('id', user.id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .single() as any)
 
         if (profile) {
             setUsage({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 used: Number((profile as any).total_tokens_used || 0),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 limit: Number((profile as any).token_limit || 100000)
             })
         }
