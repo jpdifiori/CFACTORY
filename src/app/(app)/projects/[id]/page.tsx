@@ -1,12 +1,12 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { ContentCard } from '@/components/content/ContentCard'
 import { QuickEditor } from '@/components/content/QuickEditor'
 import { createClient } from '@/utils/supabase/client'
 import { Database } from '@/types/database.types'
-import { Settings, BarChart3, Plus, Target, Calendar, Zap, Sparkles } from 'lucide-react'
+import { Settings, BarChart3, Plus, Target, Zap, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { CampaignList } from '@/components/campaigns/CampaignList'
 import { GenerationModal } from '@/components/campaigns/GenerationModal'
@@ -14,6 +14,7 @@ import { SchedulerSettings } from '@/components/dashboard/SchedulerSettings'
 import { generateContentAction } from '@/app/actions/ai'
 import { triggerImageGenerationAction } from '@/app/actions/imageActions'
 import { autoFillScheduleAction } from '@/app/actions/scheduler'
+import { ScheduleConfig } from '@/types/scheduler'
 import { publishContentAction } from '@/app/actions/publish'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
@@ -24,12 +25,13 @@ type Project = Database['public']['Tables']['project_master']['Row']
 type ContentQueueItem = Database['public']['Tables']['content_queue']['Row']
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
+type Json = Database['public']['Tables']['content_queue']['Row']['gemini_output']
 
 export default function ProjectPage() {
     const params = useParams()
     const projectId = params.id as string
     const supabase = createClient()
-    const router = useRouter()
+
 
     const [project, setProject] = useState<Project | null>(null)
     const [items, setItems] = useState<ContentQueueItem[]>([])
@@ -54,6 +56,65 @@ export default function ProjectPage() {
     // Editor State
     const [editingItem, setEditingItem] = useState<ContentQueueItem | null>(null)
 
+    const fetchProfile = React.useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            const { data } = await (supabase
+                .from('profiles') as unknown as SafeSelectBuilder<'profiles'>)
+                .select('*')
+                .eq('id', user.id)
+                .single()
+            if (data) setProfile(data)
+        }
+    }, [supabase])
+
+    const fetchProjectDetails = React.useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data, error } = await (supabase
+            .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
+            .select('*')
+            .eq('id', projectId)
+            .eq('user_id', user.id)
+            .single()
+
+        if (error) console.error('Error fetching project:', error)
+        if (data) {
+            setProject(data)
+        }
+    }, [supabase, projectId])
+
+    const fetchContentQueue = React.useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data, error } = await supabase
+            .from('content_queue')
+            .select('*')
+            .eq('project_id', projectId)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+
+        if (error) console.error('Error fetching queue:', error)
+        if (data) setItems(data)
+    }, [supabase, projectId])
+
+    const fetchCampaigns = React.useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data, error } = await supabase
+            .from('campaigns')
+            .select('*')
+            .eq('project_id', projectId)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+
+        if (error) console.error('Error fetching campaigns:', error)
+        if (data) setCampaigns(data)
+    }, [supabase, projectId])
+
     useEffect(() => {
         if (projectId) {
             fetchProjectDetails()
@@ -61,7 +122,7 @@ export default function ProjectPage() {
             fetchCampaigns()
             fetchProfile()
         }
-    }, [projectId])
+    }, [projectId, fetchProjectDetails, fetchContentQueue, fetchCampaigns, fetchProfile])
 
     // Memoized Months
     const availableMonths = React.useMemo(() => {
@@ -86,25 +147,15 @@ export default function ProjectPage() {
         })
     }, [items, statusFilter, campaignFilter, monthFilter])
 
-    const fetchProfile = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            const { data } = await (supabase
-                .from('profiles') as unknown as SafeSelectBuilder<'profiles'>)
-                .select('*')
-                .eq('id', user.id)
-                .single()
-            if (data) setProfile(data)
-        }
-    }
 
-    const handleSaveSchedule = async (newConfig: any) => {
+
+    const handleSaveSchedule = async (newConfig: ScheduleConfig) => {
         setIsSavingProfile(true)
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
             // schedule_config might be JSON type in DB, so we cast to unknown then SafeUpdateBuilder
             const { error } = await (supabase.from('profiles') as unknown as SafeUpdateBuilder<'profiles'>)
-                .update({ schedule_config: newConfig } as any) // Cast payload as any if types are strict on JSON
+                .update({ schedule_config: newConfig } as Record<string, unknown>)
                 .eq('id', user.id)
 
             if (error) alert("Error saving schedule")
@@ -134,22 +185,7 @@ export default function ProjectPage() {
         }
     }
 
-    const fetchProjectDetails = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data, error } = await (supabase
-            .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
-            .select('*')
-            .eq('id', projectId)
-            .eq('user_id', user.id)
-            .single()
-
-        if (error) console.error('Error fetching project:', error)
-        if (data) {
-            setProject(data)
-        }
-    }
 
     useEffect(() => {
         if (project?.app_name) {
@@ -158,35 +194,7 @@ export default function ProjectPage() {
         return () => setTitle('')
     }, [project, setTitle])
 
-    const fetchContentQueue = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data, error } = await supabase
-            .from('content_queue')
-            .select('*')
-            .eq('project_id', projectId)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-
-        if (error) console.error('Error fetching queue:', error)
-        if (data) setItems(data)
-    }
-
-    const fetchCampaigns = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data, error } = await supabase
-            .from('campaigns')
-            .select('*')
-            .eq('project_id', projectId)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-
-        if (error) console.error('Error fetching campaigns:', error)
-        if (data) setCampaigns(data)
-    }
 
     const openGenerationModal = (campaign: Campaign) => {
         setActiveCampaign(campaign)
@@ -248,7 +256,7 @@ export default function ProjectPage() {
                 scheduled_at: null // Will be auto-filled by scheduler
             }))
 
-            const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeInsertBuilder<'content_queue'>).insert(queueItems as any) // SafeInsertBuilder handles array insert if typed correctly, or cast data as any if structural mismatch exists but Builder is safe
+            const { error: dbError } = await (supabase.from('content_queue') as unknown as SafeInsertBuilder<'content_queue'>).insert(queueItems as Database['public']['Tables']['content_queue']['Insert'][])
             if (dbError) throw dbError
 
             await fetchContentQueue()
@@ -266,13 +274,13 @@ export default function ProjectPage() {
         setEditingItem(item)
     }
 
-    const handleSaveContent = async (id: string, newContent: any, imagePrompt?: string, triggerGen?: boolean) => {
+    const handleSaveContent = async (id: string, newContent: Record<string, unknown>, imagePrompt?: string, triggerGen?: boolean) => {
         // Optimistic update
         setItems(prev => prev.map(item => {
             if (item.id === id) {
                 return {
                     ...item,
-                    gemini_output: newContent,
+                    gemini_output: newContent as Json,
                     image_ai_prompt: imagePrompt || item.image_ai_prompt
                 }
             }
@@ -282,7 +290,7 @@ export default function ProjectPage() {
         try {
             const { error } = await (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>)
                 .update({
-                    gemini_output: newContent,
+                    gemini_output: newContent as Json,
                     image_ai_prompt: imagePrompt
                 })
                 .eq('id', id)
@@ -359,7 +367,7 @@ export default function ProjectPage() {
             {/* Scheduler & Settings */}
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 pt-8 border-t border-white/5">
                 <SchedulerSettings
-                    config={(profile as any)?.schedule_config}
+                    config={(profile as unknown as { schedule_config: ScheduleConfig })?.schedule_config}
                     onSave={handleSaveSchedule}
                     loading={isSavingProfile}
                 />
@@ -440,7 +448,7 @@ export default function ProjectPage() {
                                 onEdit={handleEdit}
                                 onStatusUpdate={(id, status) => {
                                     setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
-                                    (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status as any }).eq('id', id).then()
+                                    (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status }).eq('id', id).then()
                                 }}
                                 onPublish={handlePublish}
                             />

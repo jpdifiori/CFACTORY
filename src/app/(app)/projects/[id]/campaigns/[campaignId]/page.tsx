@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import React, { useEffect, useState, ComponentProps } from 'react'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Database } from '@/types/database.types'
-import { ArrowLeft, Target, Paintbrush, Video, Layout, Zap, Layers, Sparkles, AlertCircle, CheckCircle2, Save, Eye, Terminal, Instagram, Linkedin, Facebook, Music2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Target, Paintbrush, Layout, Zap, Layers, Sparkles, AlertCircle, CheckCircle2, Save, Eye, Terminal, Instagram, Linkedin, Facebook, Music2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { ContentCard } from '@/components/content/ContentCard'
 import { QuickEditor } from '@/components/content/QuickEditor'
@@ -53,8 +53,7 @@ export default function CampaignDetailPage() {
     const projectId = params.id as string
     const campaignId = params.campaignId as string
     const supabase = createClient()
-    const router = useRouter()
-    const { t, lang } = useLanguage()
+    const { t } = useLanguage()
     const { setTitle } = useTitle()
 
     const [campaign, setCampaign] = useState<Campaign | null>(null)
@@ -66,10 +65,11 @@ export default function CampaignDetailPage() {
     const [genQuantity, setGenQuantity] = useState(5)
     const [genLanguage, setGenLanguage] = useState<'Ingles' | 'Español'>('Español')
     const [genSize, setGenSize] = useState('square_hd')
-    const [imageEngine, setImageEngine] = useState<'fal' | 'gemini'>('fal')
+    const [imageEngine] = useState<'fal' | 'gemini'>('fal')
     const [isGenerating, setIsGenerating] = useState(false)
     const [lastGenTime, setLastGenTime] = useState<number | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [debugLogs, setDebugLogs] = useState<string[]>([]) // New Debug State
     const [socialPlatform, setSocialPlatform] = useState('Instagram')
     const [customCopy, setCustomCopy] = useState('')
     const [customVisual, setCustomVisual] = useState('')
@@ -85,7 +85,6 @@ export default function CampaignDetailPage() {
     const [vMood, setVMood] = useState('Professional')
     const [vPalette, setVPalette] = useState('colores modernos, alegres, desafiantes')
     const [vVoice, setVVoice] = useState('Professional')
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['Instagram'])
     const [resourceTab, setResourceTab] = useState('Todo')
 
     const PLATFORM_SIZES: Record<string, Record<string, string>> = {
@@ -98,13 +97,39 @@ export default function CampaignDetailPage() {
     // Editor State
     const [editingItem, setEditingItem] = useState<ContentQueueItem | null>(null)
 
+    const fetchCampaign = React.useCallback(async () => {
+        const { data } = await (supabase.from('campaigns') as unknown as SafeSelectBuilder<'campaigns'>).select('*').eq('id', campaignId).single()
+        if (data) {
+            setCampaign(data)
+            setCustomCopy(data.custom_copy_instructions || '')
+            setCustomVisual(data.custom_visual_instructions || '')
+            if (data.visual_style) setVStyle(data.visual_style)
+            if (data.mood) setVMood(data.mood)
+            if (data.color_palette) setVPalette(data.color_palette)
+            if (data.brand_voice) setVVoice(data.brand_voice)
+
+            // Set initial Title
+            setTitle(data.name)
+        }
+    }, [supabase, campaignId, setTitle])
+
+    const fetchProject = React.useCallback(async () => {
+        const { data } = await (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
+        if (data) setProject(data)
+    }, [supabase, projectId])
+
+    const fetchCampaignItems = React.useCallback(async () => {
+        const { data } = await (supabase.from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>).select('*').eq('campaign_id', campaignId).order('created_at', { ascending: false })
+        if (data) setItems(data)
+    }, [supabase, campaignId])
+
     useEffect(() => {
         if (campaignId && projectId) {
             fetchCampaign()
             fetchProject()
             fetchCampaignItems()
         }
-    }, [campaignId, projectId])
+    }, [campaignId, projectId, fetchCampaign, fetchProject, fetchCampaignItems])
 
     // Auto-refresh when items are pending images
     useEffect(() => {
@@ -116,7 +141,7 @@ export default function CampaignDetailPage() {
         }, 3000) // Poll every 3s
 
         return () => clearInterval(interval)
-    }, [items])
+    }, [items, fetchCampaignItems])
 
     // Manage Dynamic Header Title
     useEffect(() => {
@@ -140,31 +165,7 @@ export default function CampaignDetailPage() {
         }
     }, [success])
 
-    const fetchCampaign = async () => {
-        const { data } = await (supabase.from('campaigns') as unknown as SafeSelectBuilder<'campaigns'>).select('*').eq('id', campaignId).single()
-        if (data) {
-            setCampaign(data)
-            setCustomCopy(data.custom_copy_instructions || '')
-            setCustomVisual(data.custom_visual_instructions || '')
-            if (data.visual_style) setVStyle(data.visual_style)
-            if (data.mood) setVMood(data.mood)
-            if (data.color_palette) setVPalette(data.color_palette)
-            if (data.brand_voice) setVVoice(data.brand_voice)
 
-            // Set initial Title
-            setTitle(data.name)
-        }
-    }
-
-    const fetchProject = async () => {
-        const { data } = await (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
-        if (data) setProject(data)
-    }
-
-    const fetchCampaignItems = async () => {
-        const { data } = await (supabase.from('content_queue') as unknown as SafeSelectBuilder<'content_queue'>).select('*').eq('campaign_id', campaignId).order('created_at', { ascending: false })
-        if (data) setItems(data)
-    }
 
     const handleEdit = (item: ContentQueueItem) => {
         setEditingItem(item)
@@ -226,9 +227,10 @@ export default function CampaignDetailPage() {
                     skipText: skipText !== undefined ? skipText : skipImageText
                 })
             }
-        } catch (e: any) {
+
+        } catch (e: unknown) {
             console.error("Error saving content item:", e)
-            setError(`${t.common.error}: ${e.message}`)
+            setError(`${t.common.error}: ${(e as Error).message}`)
         }
     }
 
@@ -242,8 +244,8 @@ export default function CampaignDetailPage() {
             } else {
                 setError(res.error || 'Publishing failed')
             }
-        } catch (error: any) {
-            setError(error.message || 'Publishing failed')
+        } catch (error: unknown) {
+            setError((error as Error).message || 'Publishing failed')
         }
     }
 
@@ -315,34 +317,58 @@ export default function CampaignDetailPage() {
 
             if (dbError) throw new Error(`Database Error: ${(dbError as { message: string }).message}`)
 
-            // 4. Trigger Image Generation in background for each item
+            // 4. Trigger Image Generation with Error Capture
             if (newItems) {
-                (newItems as unknown as ContentQueueItem[]).forEach(item => {
-                    const output = item.gemini_output as { image_title?: string };
-                    // Add visual parameters
-                    const visualParams: ImageGenerationParams = {
-                        image_size: genSize,
-                        engine: imageEngine,
-                        language: genLanguage,
-                        masterInstructions: customVisual,
-                        num_inference_steps: 28,
-                        style: vStyle,
-                        mood: vMood,
-                        color_palette: vPalette,
-                        imageText: !skipImageText ? output?.image_title || '' : undefined,
-                        skipText: skipImageText
-                    }
-                    if (item.image_ai_prompt) {
-                        triggerImageGenerationAction(item.id, item.image_ai_prompt, visualParams)
-                    }
-                })
+                const results = await Promise.allSettled(
+                    (newItems as unknown as ContentQueueItem[]).map(async (item) => {
+                        const output = item.gemini_output as { image_title?: string };
+                        const visualParams: ImageGenerationParams = {
+                            image_size: genSize,
+                            engine: imageEngine,
+                            language: genLanguage,
+                            masterInstructions: customVisual,
+                            num_inference_steps: 28,
+                            style: vStyle,
+                            mood: vMood,
+                            color_palette: vPalette,
+                            imageText: !skipImageText ? output?.image_title || '' : undefined,
+                            skipText: skipImageText
+                        }
+
+                        if (item.image_ai_prompt) {
+                            try {
+                                console.log(`Triggering image gen for item ${item.id}...`)
+                                const result = await triggerImageGenerationAction(item.id, item.image_ai_prompt, visualParams)
+
+                                if (!result.success) {
+                                    throw new Error(result.error || 'Server action returned failure')
+                                }
+
+                                return { id: item.id, status: 'success' }
+                            } catch (err: unknown) {
+                                console.error(`Failed to trigger image gen for ${item.id}:`, err)
+                                throw new Error(`Image Gen Failed (${item.id}): ${(err as Error).message}`)
+                            }
+                        }
+                    })
+                )
+
+                // Process failures
+                const failures = results.filter(r => r.status === 'rejected')
+                if (failures.length > 0) {
+                    const errorMessages = failures.map(f => (f as PromiseRejectedResult).reason.message)
+                    setDebugLogs(prev => [...prev, ...errorMessages])
+                    setError(`Completed with ${failures.length} errors. Check debug log below.`)
+                }
             }
 
             setLastGenTime(Date.now() - startTime)
             await fetchCampaignItems()
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("GENERATION_FLOW_ERROR:", e)
-            setError(e.message || "An unknown error occurred during generation.")
+            const msg = (e as Error).message || "An unknown error occurred during generation."
+            setError(msg)
+            setDebugLogs(prev => [...prev, `CRITICAL ERROR: ${msg}`, JSON.stringify(e, null, 2)])
         } finally {
             setIsGenerating(false)
         }
@@ -374,10 +400,11 @@ export default function CampaignDetailPage() {
                 color_palette: vPalette,
                 brand_voice: vVoice
             } : null)
+
             setSuccess(t.campaigns.save_success)
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Error saving campaign config:", e)
-            setError(`${t.common.error}: ${e.message}`)
+            setError(`${t.common.error}: ${(e as Error).message}`)
         } finally {
             setIsSavingConfig(false)
         }
@@ -423,8 +450,8 @@ export default function CampaignDetailPage() {
             } else {
                 setError(result.error || "Failed to optimize")
             }
-        } catch (e: any) {
-            setError(e.message)
+        } catch (e: unknown) {
+            setError((e as Error).message)
         } finally {
             if (type === 'copy') setIsOptimizingCopy(false)
             else setIsOptimizingVisual(false)
@@ -437,13 +464,26 @@ export default function CampaignDetailPage() {
         <div className="max-w-7xl mx-auto space-y-8 pb-20">
             {/* Error Display */}
             {error && (
-                <div className="bg-red-500/20 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                    <AlertCircle className="w-5 h-5 text-red-400" />
-                    <div className="flex-1">
-                        <p className="text-sm font-bold text-red-200 uppercase tracking-tighter">{t.settings.error}</p>
-                        <p className="text-xs text-red-300/80 font-mono">{error}</p>
+                <div className="bg-red-500/20 border border-red-500/50 p-4 rounded-xl flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-400" />
+                        <div className="flex-1">
+                            <p className="text-sm font-bold text-red-200 uppercase tracking-tighter">{t.settings.error}</p>
+                            <p className="text-xs text-red-300/80 font-mono">{error}</p>
+                        </div>
+                        <button onClick={() => setError(null)} className="text-red-400 hover:text-white">×</button>
                     </div>
-                    <button onClick={() => setError(null)} className="text-red-400 hover:text-white">×</button>
+                    {/* Debug Logs Section */}
+                    {debugLogs.length > 0 && (
+                        <div className="mt-2 p-2 bg-black/50 rounded-lg max-h-40 overflow-y-auto">
+                            <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Debug Logs (Vercel):</p>
+                            {debugLogs.map((log, i) => (
+                                <p key={i} className="text-[9px] font-mono text-red-300 border-b border-white/5 pb-1 mb-1 last:border-0 whitespace-pre-wrap">
+                                    {log}
+                                </p>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -487,7 +527,7 @@ export default function CampaignDetailPage() {
                             </div>
                         </div>
                         <p className="text-gray-400 max-w-xl text-lg leading-relaxed italic">
-                            "{campaign.mood} atmosphere with a {campaign.color_palette} color palette."
+                            &quot;{campaign.mood} atmosphere with a {campaign.color_palette} color palette.&quot;
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -664,7 +704,7 @@ export default function CampaignDetailPage() {
                                     onClick={() => {
                                         setSocialPlatform(platform.name)
                                         const availableTypes = Object.keys(PLATFORM_SIZES[platform.name])
-                                        setGenType(availableTypes[0] as any)
+                                        setGenType(availableTypes[0] as ContentType)
                                         setGenSize(PLATFORM_SIZES[platform.name][availableTypes[0]])
                                     }}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all border ${socialPlatform === platform.name
@@ -691,7 +731,7 @@ export default function CampaignDetailPage() {
                                         <button
                                             key={type}
                                             onClick={() => {
-                                                setGenType(type as any)
+                                                setGenType(type as ContentType)
                                                 setGenSize(PLATFORM_SIZES[socialPlatform][type])
                                             }}
                                             className={`group relative flex flex-col items-start gap-1 p-4 rounded-2xl border transition-all text-left ${genType === type
@@ -700,7 +740,7 @@ export default function CampaignDetailPage() {
                                                 }`}
                                         >
                                             <span className="text-xs font-black uppercase tracking-tighter">
-                                                {(t.campaigns as any)[type.toLowerCase()] || type}
+                                                {(t.campaigns as Record<string, string>)[type.toLowerCase()] || type}
                                             </span>
                                             <span className="text-[9px] font-mono opacity-60">
                                                 {PLATFORM_SIZES[socialPlatform][type].replace(/_/g, ' ').toUpperCase()}
@@ -740,7 +780,7 @@ export default function CampaignDetailPage() {
                                         {['Español', 'Ingles'].map((l) => (
                                             <button
                                                 key={l}
-                                                onClick={() => setGenLanguage(l as any)}
+                                                onClick={() => setGenLanguage(l as 'Ingles' | 'Español')}
                                                 className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all border ${genLanguage === l
                                                     ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow-lg'
                                                     : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'
@@ -836,7 +876,7 @@ export default function CampaignDetailPage() {
                                     onEdit={handleEdit}
                                     onStatusUpdate={(id, status) => {
                                         setItems(prev => prev.map(it => it.id === id ? { ...it, status } : it));
-                                        (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status as any }).eq('id', id).then()
+                                        (supabase.from('content_queue') as unknown as SafeUpdateBuilder<'content_queue'>).update({ status: status as Database['public']['Tables']['content_queue']['Row']['status'] }).eq('id', id).then()
                                     }}
                                     onPublish={handlePublish}
                                 />
@@ -858,7 +898,7 @@ export default function CampaignDetailPage() {
                 isOpen={!!editingItem}
                 onClose={() => setEditingItem(null)}
                 item={editingItem}
-                onSave={handleSaveContent as any} // Cast to any to bypass strict checks if ContentCard expects different Json signature
+                onSave={handleSaveContent as ComponentProps<typeof QuickEditor>['onSave']}
             />
             {/* Prompt Preview Modal */}
             {
@@ -904,7 +944,7 @@ export default function CampaignDetailPage() {
                                         <p>Strategic Objective: <span className="text-white font-bold">[{campaign?.strategic_objective || 'EMPTY'}]</span> {!campaign?.strategic_objective && <span className="text-[10px] text-yellow-500/50 ml-2 italic">(Objective Fallback: {campaign?.objective})</span>}</p>
 
                                         <p className="mt-4 mb-2 text-primary font-bold">--- {t.campaigns.master_directives} ---</p>
-                                        <p className="text-white italic">"{customCopy || '(No custom instructions provided)'}"</p>
+                                        <p className="text-white italic">&quot;{customCopy || '(No custom instructions provided)'}&quot;</p>
 
                                         <p className="mt-4 mb-2 text-primary font-bold">--- {t.campaigns.marketing_framework} ---</p>
                                         <p>Method: <span className="text-white">{campaign?.objective === 'Venta Directa' ? 'AIDA (Attention, Interest, Desire, Action)' : campaign?.objective === 'Autoridad_Miedo' ? 'PAS (Problem, Agitate, Solution)' : 'Hook-Story-Offer'}</span></p>
@@ -928,10 +968,10 @@ export default function CampaignDetailPage() {
                                         <p>Palette: <span className="text-white">{vPalette}</span></p>
 
                                         <p className="mt-4 mb-2 text-purple-400 font-bold">--- PHOTOGRAPHIC SPECS (AUTO-INJECTED) ---</p>
-                                        <p className="text-white/80 italic">"Ultra-high definition, 8k, photorealistic textures, cinematic quality. Professional studio setup (Rim lighting, softbox). 85mm f/1.8 optics. Sharp focus, deep depth of field."</p>
+                                        <p className="text-white/80 italic">&quot;Ultra-high definition, 8k, photorealistic textures, cinematic quality. Professional studio setup (Rim lighting, softbox). 85mm f/1.8 optics. Sharp focus, deep depth of field.&quot;</p>
 
                                         <p className="mt-4 mb-2 text-purple-400 font-bold">--- MASTER CREATIVE DIRECTIVE ---</p>
-                                        <p className="text-white italic">"{customVisual || '(No custom instructions provided)'}"</p>
+                                        <p className="text-white italic">&quot;{customVisual || '(No custom instructions provided)'}&quot;</p>
                                     </div>
                                 </section>
                             </div>

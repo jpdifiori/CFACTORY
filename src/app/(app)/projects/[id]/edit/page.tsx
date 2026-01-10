@@ -34,13 +34,7 @@ export default function EditProjectPage() {
         problem_solved: '' // Qué problema resuelve
     })
 
-    useEffect(() => {
-        if (projectId) {
-            fetchProject()
-        }
-    }, [projectId])
-
-    const fetchProject = async () => {
+    const fetchProject = React.useCallback(async () => {
         try {
             const { data, error } = await (supabase
                 .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
@@ -66,7 +60,13 @@ export default function EditProjectPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [supabase, projectId, t.settings.error])
+
+    useEffect(() => {
+        if (projectId) {
+            fetchProject()
+        }
+    }, [projectId, fetchProject])
 
     useEffect(() => {
         if (formData.app_name) {
@@ -101,9 +101,9 @@ export default function EditProjectPage() {
             }
 
             router.push(`/projects/${projectId}`)
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating project:', error)
-            alert(`Error updating company: ${error.message || 'Unknown error'}`)
+            alert(`Error updating company: ${(error as Error).message || 'Unknown error'}`)
         } finally {
             setSaving(false)
         }
@@ -117,6 +117,13 @@ export default function EditProjectPage() {
         { value: 'Minimalist', label: lang === 'es' ? 'Minimalista (Limpio, directo)' : 'Minimalist (Clean, direct)' },
     ]
 
+    // Effect for cleanup moved up or just use useTitle logic handled by context effectively
+    // But since useTitle does it, do we need manual cleanup here? The context usually handles it?
+    // The existing code has a specific cleanup effect at the end. I will move it UP to ensure it runs unconditionally.
+    useEffect(() => {
+        return () => setTitle('')
+    }, [setTitle])
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -126,10 +133,7 @@ export default function EditProjectPage() {
         )
     }
 
-    // Effect for cleanup
-    useEffect(() => {
-        return () => setTitle('')
-    }, [setTitle])
+
 
     return (
         <div className="max-w-3xl mx-auto py-12 px-4">

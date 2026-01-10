@@ -20,9 +20,9 @@ import {
 import Link from 'next/link'
 import { THEMES, applyTheme, ThemeOverrides } from '@/lib/ai/templates'
 import { useLanguage } from '@/context/LanguageContext'
-import { Database } from '@/types/database.types'
+import { Database, Json } from '@/types/database.types'
 import { SafeSelectBuilder } from '@/utils/supabaseSafe'
-import { BlockType } from '@/lib/ai/block-schemas'
+import { BlockType, BlockContent } from '@/lib/ai/block-schemas'
 
 type PremiumProject = Database['public']['Tables']['premium_content_projects']['Row'] & { project_master?: { app_name: string } }
 type ContentChapter = Database['public']['Tables']['content_chapters']['Row']
@@ -34,7 +34,7 @@ interface ContentBlock {
     index: number
     type: BlockType
     status: 'Pending' | 'Generating' | 'Completed' | 'Error' | 'ProcessingImage'
-    content_json: any
+    content_json: BlockContent | null
     image_url: string | null
     html_override?: string
     created_at: string
@@ -130,8 +130,7 @@ export default function PremiumProjectDetailPage() {
 
     useEffect(() => {
         if (project?.id && debouncedOverrides && !loading) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            updateProjectDesignAction(project.id, debouncedOverrides as any)
+            updateProjectDesignAction(project.id, debouncedOverrides as unknown as Json)
         }
     }, [debouncedOverrides, project?.id, loading])
 
@@ -285,7 +284,7 @@ export default function PremiumProjectDetailPage() {
         console.log("All parallel generations attempted.")
     }
 
-    const handleUpdateBlock = async (blockId: string, updates: { content_json?: unknown, html_override?: string, index?: number }) => {
+    const handleUpdateBlock = async (blockId: string, updates: { content_json?: BlockContent, html_override?: string, index?: number }) => {
         try {
             await updateBlockContentAction(blockId, updates)
             if (selectedChapter) fetchBlocks(selectedChapter.id)
@@ -449,32 +448,7 @@ export default function PremiumProjectDetailPage() {
     }
 
     // const resetOverrides = () => { ... } // Removing unused function or keeping commented out if planned for future use
-    const resetOverrides = () => {
-        setOverrides({
-            fontSize: 18,
-            lineHeight: 1.6,
-            accentColor: '#3b82f6',
-            backgroundColor: '#ffffff',
-            textColor: '#0f172a',
-            fontFamily: 'Inter, sans-serif',
-            headingFontFamily: 'Inter, sans-serif',
-            paragraphSpacing: 1.5,
-            pagePadding: 40,
-            marginSides: 0,
-            letterSpacing: 0,
-            columnCount: 1,
-            viewport: 'Desktop',
-            fontWeight: 400,
-            textTransform: 'none',
-            textAlign: 'left',
-            borderRadius: 0,
-            borderWidth: 0,
-            borderColor: '#e2e8f0',
-            shadowDepth: 'none',
-            layoutMode: 'Flow',
-            imageSpacing: 40
-        })
-    }
+
 
     const handleApplyDesignMood = async () => {
         if (!designMood) return
@@ -816,14 +790,14 @@ export default function PremiumProjectDetailPage() {
                                     <BlockRenderer
                                         key={block.id}
                                         id={block.id}
-                                        type={block.type as any} // Temporary cast if BlockType verification is complex, or ensure strict type match
-                                        content={block.content_json}
+                                        type={block.type}
+                                        content={block.content_json as BlockContent}
                                         status={block.status}
                                         imageUrl={block.image_url || undefined}
                                         htmlOverride={block.html_override}
                                         isEditing={isEditing}
                                         onSelection={handleSelection}
-                                        onUpdate={(updates: { content_json?: unknown; html_override?: string }) => handleUpdateBlock(block.id, updates)}
+                                        onUpdate={(updates: { content_json?: BlockContent; html_override?: string }) => handleUpdateBlock(block.id, updates)}
                                         onMove={(dir: 'up' | 'down') => handleMoveBlock(block.id, dir)}
                                         onDelete={() => handleDeleteBlock(block.id)}
                                     />
@@ -945,7 +919,7 @@ export default function PremiumProjectDetailPage() {
                                         >
                                             <span className="text-[10px] font-black text-white uppercase tracking-widest">{theme.name}</span>
                                             <div className="flex gap-1.5">
-                                                {(theme.previewColors || []).map((c: any, i: number) => (
+                                                {(theme.previewColors || []).map((c: string, i: number) => (
                                                     <div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
                                                 ))}
                                             </div>

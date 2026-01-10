@@ -31,7 +31,7 @@ type BlockRow = {
     index: number
     type: BlockType
     status: string
-    content_json: any
+    content_json: Record<string, unknown> | null
     image_url: string | null
     premium_project_id?: string // joined usage? no, referenced via relation
 }

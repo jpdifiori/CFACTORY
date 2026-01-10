@@ -128,6 +128,7 @@ export type Database = {
           problem_solved?: string | null
           strategic_objective?: string | null
           duration_type?: string | null
+          differential?: string | null
           target_url?: string | null
           brand_voice?: string | null
         }

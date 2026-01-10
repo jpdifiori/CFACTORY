@@ -104,7 +104,19 @@ export async function publishContentToSocialsAction(itemId: string) {
                 cta: output?.cta,
                 hashtags: output?.hashtags,
                 image_url: itemWithCampaign.image_final_url || itemWithCampaign.image_url,
+                image_final_url: itemWithCampaign.image_final_url || itemWithCampaign.image_url, // Added for explicit n8n mapping
                 content_type: itemWithCampaign.content_type,
+                // Helper payload for TikTok
+                tiktok_payload: {
+                    source_info: {
+                        source: "PULL_FROM_URL",
+                        video_url: itemWithCampaign.image_final_url || itemWithCampaign.image_url
+                    },
+                    post_info: {
+                        title: output?.headline || output?.title || "New Post",
+                        privacy_level: "PUBLIC_TO_EVERYONE"
+                    }
+                }
             },
             campaign: {
                 name: itemWithCampaign.campaigns?.name,

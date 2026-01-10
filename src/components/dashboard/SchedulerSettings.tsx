@@ -3,15 +3,7 @@
 import React, { useState } from 'react'
 import { Calendar, Clock, Plus, Trash2, Save, Sparkles } from 'lucide-react'
 
-interface DayConfig {
-    count: number
-    hours: string[]
-}
-
-interface ScheduleConfig {
-    workdays: DayConfig
-    weekends: DayConfig
-}
+import { ScheduleConfig } from '@/types/scheduler'
 
 interface ScheduleConfigProps {
     config: ScheduleConfig

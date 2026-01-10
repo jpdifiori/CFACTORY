@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { ArrowLeft, Sparkles, Paintbrush, Target, Search, HelpCircle, Wand2, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, Sparkles, Paintbrush, Target, Search, Wand2, Loader2, Save } from 'lucide-react'
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { CreatableSelect } from '@/components/ui/CreatableSelect'
@@ -11,9 +11,18 @@ import { useLanguage } from '@/context/LanguageContext'
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { HelpTooltip } from '@/components/ui/HelpTooltip'
 import { MarketInsights } from '@/components/campaigns/MarketInsights'
-import { calculateStrategyAction, generateInstructionsAction } from '@/app/actions/strategy_actions'
+import { calculateStrategyAction, generateInstructionsAction, StrategyResponse } from '@/app/actions/strategy_actions'
 import { useTitle } from '@/context/TitleContext'
 import { useEffect } from 'react'
+import { SafeSelectBuilder, SafeInsertBuilder } from '@/utils/supabaseSafe'
+
+
+interface SupabaseError {
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+}
 
 type Objective = Database['public']['Tables']['campaigns']['Row']['objective']
 type VisualStyle = Database['public']['Tables']['campaigns']['Row']['visual_style']
@@ -75,7 +84,7 @@ export default function NewCampaignPage() {
 
     // Market Intel State
     const [isAnalyzing, setIsAnalyzing] = useState(false)
-    const [marketData, setMarketData] = useState<any>(null)
+    const [marketData, setMarketData] = useState<StrategyResponse | null>(null)
     const [contextData, setContextData] = useState({
         topic: '',
         orientation: '',
@@ -104,10 +113,12 @@ export default function NewCampaignPage() {
     // Fetch project for title
     useEffect(() => {
         if (projectId) {
-            (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
-                .then(({ data }: any) => {
-                    if (data) setProjectName(data.app_name)
-                })
+            if (projectId) {
+                (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('app_name').eq('id', projectId).single()
+                    .then(({ data }) => {
+                        if (data) setProjectName(data.app_name)
+                    })
+            }
         }
     }, [projectId, supabase])
 
@@ -235,7 +246,7 @@ export default function NewCampaignPage() {
             if (!user) throw new Error('Not authenticated')
 
             const { error } = await (supabase
-                .from('campaigns') as any)
+                .from('campaigns') as unknown as SafeInsertBuilder<'campaigns'>)
                 .insert([{
                     project_id: projectId,
                     user_id: user.id,
@@ -244,20 +255,21 @@ export default function NewCampaignPage() {
                     target_orientation: contextData.orientation,
                     problem_solved: contextData.problem,
                     differential: contextData.differential
-                }] as any)
+                }])
 
             if (error) throw error
 
             router.push(`/projects/${projectId}`)
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const sbError = error as SupabaseError
             console.error('Error creating campaign:', {
-                message: error?.message,
-                code: error?.code,
-                details: error?.details,
-                hint: error?.hint,
+                message: sbError?.message,
+                code: sbError?.code,
+                details: sbError?.details,
+                hint: sbError?.hint,
                 fullError: error
             })
-            alert(`Failed to create campaign: ${error?.message || 'Unknown error'}`)
+            alert(`Failed to create campaign: ${sbError?.message || 'Unknown error'}`)
         } finally {
             setLoading(false)
         }

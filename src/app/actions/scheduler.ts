@@ -45,12 +45,16 @@ export async function autoFillScheduleAction(projectId: string) {
         // No, the call itself errors.
 
         // I'll use a local type for this specific complex query
-        interface ComplexContentQuery {
+
+
+        // Use a typed interface for the query builder to avoid 'any'
+        // We define the shape we expect from the query chain.
+        interface SchedulerQueryBuilder {
             select: (q: string) => {
                 eq: (c: string, v: string) => {
                     eq: (c: string, v: string) => {
                         is: (c: string, v: null) => {
-                            order: (c: string, o: any) => Promise<{ data: { id: string, scheduled_at: string }[] | null, error: unknown }>
+                            order: (c: string, o: { ascending: boolean }) => Promise<{ data: { id: string, scheduled_at: string }[] | null, error: unknown }>
                         }
                     }
                 }
@@ -58,7 +62,7 @@ export async function autoFillScheduleAction(projectId: string) {
         }
 
         const { data: items, error: fetchError } = await (supabase
-            .from('content_queue') as unknown as { select: (q: string) => any })
+            .from('content_queue') as unknown as SchedulerQueryBuilder)
             .select('id, scheduled_at')
             .eq('project_id', projectId)
             .eq('user_id', user.id)

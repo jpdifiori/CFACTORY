@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Instagram, Facebook, Linkedin, Twitter, Music,
-    ExternalLink, Lock, Settings, CheckCircle2, AlertCircle, Loader2, X, Plus, Zap
+    Lock, CheckCircle2, AlertCircle, Loader2, X, Zap
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
@@ -19,7 +19,7 @@ import { Database } from '@/types/database.types'
 import { SafeSelectBuilder } from '@/utils/supabaseSafe'
 
 type SocialConnection = Database['public']['Tables']['social_connections']['Row']
-type Project = Database['public']['Tables']['project_master']['Row']
+
 type PlatformDef = typeof PLATFORMS[number]
 const PLATFORMS = [
     { id: 'instagram', name: 'Instagram', icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-500/10' },
@@ -40,7 +40,6 @@ export default function ConnectionsPage() {
 
     const [loading, setLoading] = useState(true)
     const [connections, setConnections] = useState<SocialConnection[]>([])
-    const [project, setProject] = useState<Project | null>(null)
     const [showModal, setShowModal] = useState(false)
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformDef | null>(null)
 
@@ -53,12 +52,24 @@ export default function ConnectionsPage() {
     const [submitting, setSubmitting] = useState(false)
     const [testingId, setTestingId] = useState<string | null>(null)
 
+    const fetchData = React.useCallback(async () => {
+        setLoading(true)
+        try {
+            const { data } = await (supabase.from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>).select('*').eq('project_id', projectId)
+            if (data) setConnections(data)
+        } catch {
+            console.error('Error fetching connections')
+        } finally {
+            setLoading(false)
+        }
+    }, [supabase, projectId])
+
     useEffect(() => {
         setTitle(t.connections.title)
         if (projectId) {
             fetchData()
         }
-    }, [projectId, t])
+    }, [projectId, t, fetchData, setTitle])
 
     // Handle OAuth Redirect params
     useEffect(() => {
@@ -77,26 +88,9 @@ export default function ConnectionsPage() {
             alert(`Connection Error: ${decodeURIComponent(error)}`)
             router.replace(`/projects/${projectId}/connections`)
         }
-    }, [searchParams, projectId])
+    }, [searchParams, projectId, router, fetchData])
 
-    const fetchData = async () => {
-        setLoading(true)
-        try {
-            const [connRes, projRes] = await Promise.all([
-                (supabase.from('social_connections') as unknown as SafeSelectBuilder<'social_connections'>).select('*').eq('project_id', projectId),
-                (supabase.from('project_master') as unknown as SafeSelectBuilder<'project_master'>).select('*').eq('id', projectId).single()
-            ])
 
-            if (connRes.data) setConnections(connRes.data)
-            if (projRes.data) {
-                setProject(projRes.data)
-            }
-        } catch (error) {
-            console.error('Error fetching connections:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const handleConnectClick = async (platform: PlatformDef) => {
         if (platform.id === 'instagram') {
@@ -184,7 +178,7 @@ export default function ConnectionsPage() {
             } else {
                 alert('Error: ' + res.error)
             }
-        } catch (error) {
+        } catch {
             alert('An unexpected error occurred.')
         } finally {
             setSubmitting(false)
@@ -201,7 +195,7 @@ export default function ConnectionsPage() {
                 alert('Connection test failed: ' + res.error)
             }
             fetchData()
-        } catch (error) {
+        } catch {
             alert('Test failed.')
         } finally {
             setTestingId(null)
@@ -230,7 +224,7 @@ export default function ConnectionsPage() {
             } else {
                 alert('Error deleting connection: ' + res.error)
             }
-        } catch (error) {
+        } catch {
             alert('An unexpected error occurred.')
         } finally {
             setLoading(false)
@@ -239,7 +233,7 @@ export default function ConnectionsPage() {
 
     // Helper to get platform specific strings
     const getPlatformStrings = (platformId: string) => {
-        // @ts-ignore
+        // @ts-expect-error - Dictionary access
         return t.connections.platforms[platformId] || {
             id_label: 'Platform ID',
             token_label: 'Access Token',
