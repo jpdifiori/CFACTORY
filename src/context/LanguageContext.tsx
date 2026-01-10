@@ -16,7 +16,6 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
     // Initialize state with a function to read from localStorage only once on mount (client-side)
     const [lang, setLangState] = useState<Language>('es')
-    const [isInitialized, setIsInitialized] = useState(false)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -30,7 +29,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
                     setLangState(browserLang as Language)
                 }
             }
-            setIsInitialized(true)
         }
     }, [])
 

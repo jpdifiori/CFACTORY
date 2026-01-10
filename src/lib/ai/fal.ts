@@ -6,6 +6,7 @@ import * as fal from "@fal-ai/serverless-client";
  * @param params Optional overrides (size, steps, etc)
  * @returns The final image URL
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function generateImageFal(prompt: string, params: any = {}): Promise<string> {
     const falKey = process.env.FAL_KEY || process.env.NEXT_PUBLIC_FAL_KEY;
 
@@ -47,6 +48,7 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
 
         console.log("Fal.ai: Final Augmented Prompt:", enhancedPrompt);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result: any = await fal.subscribe("fal-ai/flux/dev", {
             input: {
                 prompt: enhancedPrompt,
@@ -66,6 +68,7 @@ export async function generateImageFal(prompt: string, params: any = {}): Promis
         }
 
         throw new Error("Fal.ai: No image returned from API");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error("Fal.ai Error:", error);
         throw new Error(`Fal.ai Image Error: ${error.message || 'Unknown'}`);

@@ -105,7 +105,7 @@ export function CreatableSelect({
                             }}
                         >
                             <Plus className="w-3 h-3" />
-                            Create "{inputValue}"
+                            Create &quot;{inputValue}&quot;
                         </div>
                     )}
 

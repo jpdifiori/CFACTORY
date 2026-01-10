@@ -99,7 +99,7 @@ export function HelpTooltip({ text }: HelpTooltipProps) {
                                         <span className="text-[10px] font-black uppercase tracking-widest text-blue-400/90">Ejemplos Recomendados</span>
                                     </div>
                                     <p className="text-[12px] text-gray-400 italic leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">
-                                        "{text.examples}"
+                                        &quot;{text.examples}&quot;
                                     </p>
                                 </div>
                             </div>
