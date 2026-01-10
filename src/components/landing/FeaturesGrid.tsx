@@ -29,7 +29,8 @@ export function FeaturesGrid() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {featuresExtended.map((feature, i) => (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {featuresExtended.map((feature) => (
                     <div
                         key={feature.title}
                         className={`glass-card p-0.5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden group hover:border-white/10 transition-all duration-500 ${feature.image ? 'md:col-span-2' : ''}`}
@@ -55,6 +56,7 @@ export function FeaturesGrid() {
 
                             {feature.image && (
                                 <div className="flex-1 w-full relative aspect-[16/9] lg:aspect-[4/3] max-h-[300px] md:max-h-[400px] rounded-xl md:rounded-2xl overflow-hidden glass border-white/5 group-hover:border-white/10 transition-all mt-4 lg:mt-0">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={feature.image}
                                         alt={feature.title}

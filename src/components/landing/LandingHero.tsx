@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { ArrowRight, Sparkles, Zap, Shield } from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import { useLanguage } from '@/context/LanguageContext'
 
 export function LandingHero() {
@@ -13,6 +13,7 @@ export function LandingHero() {
             {/* Background Image with Overlay */}
             <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-[#0a0a0a]" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src="/landing_page_hero_bg_1766886777258.png"
                     alt="Background"
