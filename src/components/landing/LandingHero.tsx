@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { useLanguage } from '@/context/LanguageContext'
 
@@ -13,11 +14,12 @@ export function LandingHero() {
             {/* Background Image with Overlay */}
             <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-[#0a0a0a]" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                     src="/landing_page_hero_bg_1766886777258.png"
                     alt="Background"
-                    className="w-full h-full object-cover opacity-20 md:opacity-30 mix-blend-luminosity scale-110"
+                    fill
+                    priority
+                    className="object-cover opacity-20 md:opacity-30 mix-blend-luminosity scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0a]/90 to-[#0a0a0a]" />
             </div>

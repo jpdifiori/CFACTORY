@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react'
 import { useLanguage } from '@/context/LanguageContext'
 
@@ -10,14 +10,16 @@ export function TestimonialsCarousel() {
 
     const items = t.testimonials.items
 
-    const next = () => setActiveIndex((prev) => (prev + 1) % items.length)
+    const next = useCallback(() => {
+        setActiveIndex((prev) => (prev + 1) % items.length)
+    }, [items.length])
+
     const prev = () => setActiveIndex((prev) => (prev - 1 + items.length) % items.length)
 
     useEffect(() => {
         const interval = setInterval(next, 5000)
         return () => clearInterval(interval)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [next])
 
     return (
         <section className="py-6 md:py-10 px-6 overflow-hidden relative">

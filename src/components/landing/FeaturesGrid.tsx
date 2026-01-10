@@ -1,14 +1,25 @@
 'use client'
 
 import React from 'react'
-import { TrendingUp, ImageIcon, MessageSquare, BarChart3, Globe } from 'lucide-react'
+import Image from 'next/image'
+import { TrendingUp, ImageIcon, MessageSquare, BarChart3, Globe, LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/context/LanguageContext'
+
+interface FeatureItemExtended {
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    color: string;
+    bg: string;
+    image: string | null;
+}
 
 export function FeaturesGrid() {
     const { t } = useLanguage()
 
     const featureIcons = [TrendingUp, ImageIcon, Globe, MessageSquare]
-    const featuresExtended = t.features.items.map((item, i) => ({
+
+    const featuresExtended: FeatureItemExtended[] = t.features.items.map((item: { title: string; description: string }, i: number) => ({
         ...item,
         icon: featureIcons[i],
         color: i === 0 ? "text-blue-400" : i === 1 ? "text-purple-400" : i === 2 ? "text-green-400" : "text-amber-400",
@@ -29,7 +40,6 @@ export function FeaturesGrid() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {featuresExtended.map((feature) => (
                     <div
                         key={feature.title}
@@ -56,11 +66,11 @@ export function FeaturesGrid() {
 
                             {feature.image && (
                                 <div className="flex-1 w-full relative aspect-[16/9] lg:aspect-[4/3] max-h-[300px] md:max-h-[400px] rounded-xl md:rounded-2xl overflow-hidden glass border-white/5 group-hover:border-white/10 transition-all mt-4 lg:mt-0">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
+                                    <Image
                                         src={feature.image}
                                         alt={feature.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2000ms]"
+                                        fill
+                                        className="object-cover group-hover:scale-105 transition-transform duration-[2000ms]"
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/60 via-transparent to-transparent" />
 
