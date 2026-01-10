@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY!
-const genAI = new GoogleGenerativeAI(apiKey)
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
+if (!apiKey) {
+    console.warn("WARNING: No Gemini/Google API Key found in environment variables.")
+}
+const genAI = new GoogleGenerativeAI(apiKey || '')
 
 const model = genAI.getGenerativeModel({
     model: 'gemini-2.0-flash',
@@ -65,17 +68,19 @@ export async function generateText(prompt: string): Promise<AIResponse<string>> 
  * Uses Native JSON Mode and a Surgical Sanitization Layer with recursive healing.
  */
 export async function generateJSON<T>(prompt: string): Promise<AIResponse<T>> {
+    let rawText = "";
+    let sanitizedText = "";
     try {
         console.log("Gemini API Request (JSON Mode)...")
         const result = await model.generateContent(prompt)
         const response = await result.response
-        const text = response.text()
+        rawText = response.text()
         const usage = response.usageMetadata || { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
 
-        console.log("Gemini API Response (JSON Mode) Received. Length:", text.length, "Attempting heal & parse...")
+        console.log("Gemini API Response (JSON Mode) Received. Length:", rawText.length, "Attempting heal & parse...")
 
         // 1. Surgical Sanitization of the raw text first to fix control characters inside potential strings
-        let sanitizedText = sanitizeJSONString(text);
+        sanitizedText = sanitizeJSONString(rawText);
 
         // 2. Comprehensive Extraction Strategy
         const startIndex = sanitizedText.indexOf('{');
@@ -115,6 +120,8 @@ export async function generateJSON<T>(prompt: string): Promise<AIResponse<T>> {
         }
     } catch (error: any) {
         console.error('Gemini API Error (JSON Mode):', error)
+        console.error('RAW TEXT FROM AI:', rawText)
+        console.error('SANITIZED TEXT:', sanitizedText)
         throw new Error(`Gemini JSON Error: ${error.message || 'Unknown'}`)
     }
 }
@@ -174,27 +181,39 @@ export async function generateSearchJSON<T>(prompt: string): Promise<AIResponse<
  * Preserves valid JSON whitespace (newlines/tabs between properties).
  */
 function sanitizeJSONString(str: string): string {
-    // 1. Identify all string literals in the potential JSON
-    return str.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
-        // 2. Within the captured content, fix two main issues:
-        // a) Escape literal control chars (newlines, etc)
-        // b) Fix invalid escape sequences (lone backslashes)
+    // 0. Preliminary cleanup: remove markdown and normalize line endings
+    let cleaned = str.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
 
-        let sanitized = content
-            // Fix literal control characters
-            .replace(/[\u0000-\u001F]+/g, (ctrlMatch: string) => {
-                if (ctrlMatch === "\n") return "\\n";
-                if (ctrlMatch === "\r") return "\\r";
-                if (ctrlMatch === "\t") return "\\t";
-                return "";
-            })
-            // Fix invalid escape sequences: a backslash NOT followed by " \ / b f n r t u
-            // Note: we use a negative lookahead to identify backslashes that are lone or followed by invalid chars
-            .replace(/\\(?!(["\\\/bfnrt]|u[0-9a-fA-F]{4}))/g, "\\\\");
+    // 1. Defensively escape literal control characters inside what look like string values
+    // This regex matches potential string literals, including those broken by newlines
+    // We use [\s\S] instead of the 's' flag for better compatibility
+    const brokenStringRegex = /"(?:[^"\\]|\\.)*?"/g;
 
-        return `"${sanitized}"`;
-    }).trim();
+    cleaned = cleaned.replace(brokenStringRegex, (match) => {
+        // Fix control characters (0-31) inside the matched string
+        return match.replace(/[\x00-\x1F]/g, (char) => {
+            if (char === '\n') return '\\n';
+            if (char === '\r') return '\\r';
+            if (char === '\t') return '\\t';
+            const hex = char.charCodeAt(0).toString(16).padStart(4, '0');
+            return '\\u' + hex;
+        });
+    });
+
+    // 2. Final pass for any stray control characters outside strings (except valid whitespaces)
+    let final = "";
+    for (let i = 0; i < cleaned.length; i++) {
+        const char = cleaned[i];
+        const code = char.charCodeAt(0);
+        if (code < 32 && code !== 10 && code !== 13 && code !== 9) {
+            continue; // Drop illegal control characters
+        }
+        final += char;
+    }
+
+    return final;
 }
+
 /**
  * Generates an image using Gemini (Imagen 4 Fast)
  * @param prompt The prompt for the image

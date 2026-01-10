@@ -59,7 +59,10 @@ export async function testSocialConnectionAction(connectionId: string) {
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     if (!webhookUrl) {
         console.warn('N8N_WEBHOOK_URL not configured')
-        return { success: false, error: 'Integration bridge not configured' }
+        return {
+            success: false,
+            error: 'Integration bridge (n8n) not configured. Please check your N8N_WEBHOOK_URL in .env.local'
+        }
     }
 
     try {
@@ -110,5 +113,47 @@ export async function updateSafetyZonesAction(projectId: string, safetyZones: an
         return { success: false, error: error.message }
     }
 
+    return { success: true }
+}
+
+export async function deleteSocialConnectionAction(connectionId: string, projectId: string) {
+    const supabase = (await createClient()) as any
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    console.log(`Attempting to delete connection ${connectionId} for project ${projectId}`)
+
+    // Verify ownership by checking if the connection belongs to the user AND project
+    // Although RLS handles user check, explicit logic is good for specific error handling
+    const { error, count } = await supabase
+        .from('social_connections')
+        .delete({ count: 'exact' })
+        .eq('id', connectionId)
+        .eq('project_id', projectId) // Extra safety check
+
+    if (error) {
+        console.error('Error deleting connection:', error)
+        return { success: false, error: error.message }
+    }
+
+    if (count === 0) {
+        console.warn(`No connection found with id ${connectionId} for project ${projectId}`)
+        // Try deleting without project_id filter if id is a broad UUID just in case of mismatch
+        const { error: retryError, count: retryCount } = await supabase
+            .from('social_connections')
+            .delete({ count: 'exact' })
+            .eq('id', connectionId)
+            .eq('user_id', user.id)
+
+        if (retryError) return { success: false, error: retryError.message }
+        if (retryCount === 0) return { success: false, error: 'Connection not found or already deleted' }
+
+        console.log(`Connection deleted on retry (user_id match)`)
+    }
+
+    console.log('Connection deleted successfully')
     return { success: true }
 }

@@ -168,7 +168,8 @@ export async function triggerImageGenerationAction(itemId: string, prompt: strin
 export async function analyzeImageForPlacementAction(imageUrl: string) {
     try {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        const genAI = new GoogleGenerativeAI(apiKey || '');
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         // Fetch image and convert to base64
@@ -251,15 +252,12 @@ export async function bakeImageWithTextAction(itemId: string, config: {
         const posX = (config.style.x / 100) * width;
         const posY = (config.style.y / 100) * height;
 
-        const lines = (config.text || '').split('\n').filter(l => l.trim().length > 0);
+        const lines = (config.text || '').split('\n');
 
         // FONT SCALING FIX
-        // If the frontend provided the editor's width, use it to calculate the scale factor.
-        // Otherwise, fall back to the raw fontSize (which caused the mismatch).
         let fontSize = config.style.fontSize || 54;
         if ((config.style as any).containerWidth) {
             const scaleFactor = width / (config.style as any).containerWidth;
-            console.log(`[BAKER] Scaling font by ${scaleFactor.toFixed(2)} (Img: ${width} / Editor: ${(config.style as any).containerWidth})`);
             fontSize = Math.round(fontSize * scaleFactor);
         }
 
@@ -278,17 +276,19 @@ export async function bakeImageWithTextAction(itemId: string, config: {
             }
         });
 
-        const lineHeight = fontSize * 1.2;
+        const lineHeight = fontSize * 1.1; // Match editor's estimated line-height
         const totalHeight = lines.length * lineHeight;
 
-        // Match CSS "top" behavior:
-        // posY is the top of the first line's bounding box.
-        // SVG <tspan> y is the baseline. We add approx 0.85 of fontSize to hit the first baseline.
-        const startY = posY + (fontSize * 0.85);
+        // CENTER ANCHOR LOGIC
+        // posY is the center. To make it the center, we start half the total height above posY.
+        // We add an adjustment for the first line's baseline (roughly 0.8 * fontSize)
+        const startY = posY - (totalHeight / 2) + (fontSize * 0.8);
 
         const svgContent = lines.map((line, i) => {
             const currentY = startY + (i * lineHeight);
-            return `<tspan x="${posX}" y="${currentY}">${escapeXml(line.toUpperCase())}</tspan>`;
+            // Handle empty lines by using a non-breaking space or just the coordinate
+            const content = line.trim().length === 0 ? '&#160;' : escapeXml(line);
+            return `<tspan x="${posX}" y="${currentY}">${content}</tspan>`;
         }).join('');
 
         const shadowColor = `rgba(0,0,0,${Math.min(0.9, shadowIntensity)})`;

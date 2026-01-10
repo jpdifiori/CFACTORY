@@ -8,8 +8,8 @@ import { ArrowLeft, Target, Paintbrush, Video, Layout, Zap, Layers, Sparkles, Al
 import Link from 'next/link'
 import { ContentCard } from '@/components/content/ContentCard'
 import { QuickEditor } from '@/components/content/QuickEditor'
-import { generateContentAction } from '@/app/actions/ai'
-import { triggerImageGenerationAction } from '@/app/actions/imageActions'
+import { generateContentAction, optimizeDirectivesAction } from '@/app/actions/ai'
+import { triggerImageGenerationAction, bakeImageWithTextAction } from '@/app/actions/imageActions'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
 import { IdeaGenerator } from '@/components/campaigns/IdeaGenerator'
@@ -71,6 +71,8 @@ export default function CampaignDetailPage() {
     const [showPromptPreview, setShowPromptPreview] = useState(false)
     const [skipImageText, setSkipImageText] = useState(false)
     const [success, setSuccess] = useState<string | null>(null)
+    const [isOptimizingCopy, setIsOptimizingCopy] = useState(false)
+    const [isOptimizingVisual, setIsOptimizingVisual] = useState(false)
 
     // VISUAL DNA States
     const [vStyle, setVStyle] = useState('Fotografia_Realista')
@@ -163,46 +165,64 @@ export default function CampaignDetailPage() {
     }
 
     const handleSaveContent = async (id: string, newContent: any, imagePrompt?: string, triggerGen?: boolean, overlayText?: string, overlayStyle?: any, imageFinalUrl?: string, skipText?: boolean, targetSize?: string) => {
-        setItems(prev => prev.map(item => {
-            if (item.id === id) {
-                return {
-                    ...item,
-                    gemini_output: newContent,
-                    image_ai_prompt: imagePrompt || item.image_ai_prompt,
-                    overlay_text_content: overlayText !== undefined ? overlayText : item.overlay_text_content,
-                    overlay_style_json: overlayStyle !== undefined ? overlayStyle : item.overlay_style_json,
-                    image_final_url: imageFinalUrl || item.image_final_url
+        try {
+            setItems(prev => prev.map(item => {
+                if (item.id === id) {
+                    return {
+                        ...item,
+                        gemini_output: newContent,
+                        image_ai_prompt: imagePrompt || item.image_ai_prompt,
+                        overlay_text_content: overlayText !== undefined ? overlayText : item.overlay_text_content,
+                        overlay_style_json: overlayStyle !== undefined ? overlayStyle : item.overlay_style_json,
+                        image_final_url: imageFinalUrl || item.image_final_url
+                    }
                 }
+                return item
+            }))
+
+            // Persist to DB
+            const { error: dbError } = await (supabase.from('content_queue') as any)
+                .update({
+                    gemini_output: newContent,
+                    image_ai_prompt: imagePrompt,
+                    overlay_text_content: overlayText,
+                    overlay_style_json: overlayStyle,
+                    image_final_url: imageFinalUrl
+                })
+                .eq('id', id)
+
+            if (dbError) throw dbError
+
+            setSuccess(t.common.success || "Content updated successfully")
+
+            // If we have new text/style but NO new generation, trigger a re-bake
+            if (!triggerGen && overlayText && overlayStyle) {
+                console.log("Saving Content: Triggering re-bake for", id);
+                await bakeImageWithTextAction(id, {
+                    text: overlayText,
+                    style: overlayStyle
+                })
             }
-            return item
-        }))
 
-        // Persist to DB
-        await (supabase.from('content_queue') as any)
-            .update({
-                gemini_output: newContent,
-                image_ai_prompt: imagePrompt,
-                overlay_text_content: overlayText,
-                overlay_style_json: overlayStyle,
-                image_final_url: imageFinalUrl
-            })
-            .eq('id', id)
-
-        if (triggerGen && imagePrompt) {
-            triggerImageGenerationAction(id, imagePrompt, {
-                image_size: targetSize || genSize,
-                num_inference_steps: 28,
-                style: vStyle, // Use Visual DNA
-                mood: vMood,
-                color_palette: vPalette,
-                imageText: overlayText || newContent.short_image_text,
-                customText: overlayText,
-                customStyle: overlayStyle,
-                masterInstructions: customVisual,
-                language: genLanguage,
-                engine: imageEngine,
-                skipText: skipText !== undefined ? skipText : skipImageText
-            })
+            if (triggerGen && imagePrompt) {
+                triggerImageGenerationAction(id, imagePrompt, {
+                    image_size: targetSize || genSize,
+                    num_inference_steps: 28,
+                    style: vStyle, // Use Visual DNA
+                    mood: vMood,
+                    color_palette: vPalette,
+                    imageText: overlayText || newContent.short_image_text,
+                    customText: overlayText,
+                    customStyle: overlayStyle,
+                    masterInstructions: customVisual,
+                    language: genLanguage,
+                    engine: imageEngine,
+                    skipText: skipText !== undefined ? skipText : skipImageText
+                })
+            }
+        } catch (e: any) {
+            console.error("Error saving content item:", e)
+            setError(`${t.common.error}: ${e.message}`)
         }
     }
 
@@ -280,7 +300,7 @@ export default function CampaignDetailPage() {
                 user_id: user.id,
                 campaign_id: campaignId,
                 content_type: genType,
-                social_platform: socialPlatform,
+                social_platform: socialPlatform.toLowerCase(),
                 status: 'AI_Generated',
                 gemini_output: res,
                 image_ai_prompt: res.image_prompt,
@@ -309,8 +329,7 @@ export default function CampaignDetailPage() {
                         style: vStyle,
                         mood: vMood,
                         color_palette: vPalette,
-                        imageText: output.image_title,
-                        imageSubtitle: output.image_subtitle,
+                        imageText: !skipImageText ? output.image_title : undefined,
                         skipText: skipImageText
                     }
                     triggerImageGenerationAction(item.id, item.image_ai_prompt, visualParams)
@@ -376,6 +395,40 @@ export default function CampaignDetailPage() {
         if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
 
+    const handleOptimizeDirectives = async (type: 'copy' | 'visual') => {
+        if (!campaign || !project) return
+
+        if (type === 'copy') setIsOptimizingCopy(true)
+        else setIsOptimizingVisual(true)
+
+        try {
+            const result = await optimizeDirectivesAction({
+                currentDirectives: type === 'copy' ? customCopy : customVisual,
+                type,
+                campaignContext: {
+                    projectName: project.app_name,
+                    niche: project.niche_vertical,
+                    objective: campaign.objective,
+                    targetAudience: campaign.target_orientation || project.target_audience,
+                    language: genLanguage
+                }
+            })
+
+            if (result.success && result.optimizedText) {
+                if (type === 'copy') setCustomCopy(result.optimizedText)
+                else setCustomVisual(result.optimizedText)
+                setSuccess(t.common.success || "Directive optimized")
+            } else {
+                setError(result.error || "Failed to optimize")
+            }
+        } catch (e: any) {
+            setError(e.message)
+        } finally {
+            if (type === 'copy') setIsOptimizingCopy(false)
+            else setIsOptimizingVisual(false)
+        }
+    }
+
     if (!campaign || !project) return <div className="p-10 text-center text-gray-500 animate-pulse">{t.common.loading}</div>
 
     return (
@@ -438,9 +491,19 @@ export default function CampaignDetailPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                        <Sparkles className="w-3 h-3" /> {t.campaigns.master_directives} (Copy)
-                                    </label>
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                            <Sparkles className="w-3 h-3" /> {t.campaigns.master_directives} (Copy)
+                                        </label>
+                                        <button
+                                            onClick={() => handleOptimizeDirectives('copy')}
+                                            disabled={isOptimizingCopy}
+                                            className="px-2 py-1 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-md text-[9px] font-black text-primary uppercase tracking-tighter transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            {isOptimizingCopy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                            {t.campaigns.optimize}
+                                        </button>
+                                    </div>
                                     <textarea
                                         className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
                                         placeholder="Add custom directives for text..."
@@ -449,9 +512,19 @@ export default function CampaignDetailPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                        <Paintbrush className="w-3 h-3" /> {t.campaigns.master_directives} (Visual)
-                                    </label>
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                            <Paintbrush className="w-3 h-3" /> {t.campaigns.master_directives} (Visual)
+                                        </label>
+                                        <button
+                                            onClick={() => handleOptimizeDirectives('visual')}
+                                            disabled={isOptimizingVisual}
+                                            className="px-2 py-1 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 rounded-md text-[9px] font-black text-yellow-500 uppercase tracking-tighter transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            {isOptimizingVisual ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                            {t.campaigns.optimize}
+                                        </button>
+                                    </div>
                                     <textarea
                                         className="w-full h-24 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:ring-1 focus:ring-primary/50 outline-none resize-none"
                                         placeholder="Add custom directives for images..."

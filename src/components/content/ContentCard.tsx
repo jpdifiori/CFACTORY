@@ -108,19 +108,20 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
             ctx.fillStyle = color
 
             // Position (percentage based)
-            // style.y defaults to 10 to match preview's top fallback
-            const x = (style.x || 50) / 100 * canvas.width
-            const y = (style.y || 10) / 100 * canvas.height
+            // posX/posY are the CENTER of the text block
+            const posX = (style.x || 50) / 100 * canvas.width
+            const posY = (style.y || 10) / 100 * canvas.height
 
             // Multiline Support
             const lines = overlayText.split('\n')
-            const lineHeight = fontSize * (style.lineHeight || 1.1)
+            const lineHeight = fontSize * 1.1 // Match server and editor
 
-            // startY is exactly y since we set textBaseline to 'top'
-            const startY = y
+            // V-CENTER LOGIC: Calculate total height and start half-way up from posY
+            const totalHeight = lines.length * lineHeight
+            const startY = posY - (totalHeight / 2) + (fontSize * 0.8) // Baseline adjustment
 
             lines.forEach((line: string, i: number) => {
-                ctx.fillText(line.toUpperCase(), x, startY + (i * lineHeight))
+                ctx.fillText(line, posX, startY + (i * lineHeight))
             })
 
             // Download
@@ -164,6 +165,8 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
                                 className="absolute pointer-events-none select-none px-4 py-2"
                                 style={{
                                     top: `${(item as any).overlay_style_json?.y || 10}%`,
+                                    left: `${(item as any).overlay_style_json?.x || 50}%`,
+                                    transform: 'translate(-50%, -50%)',
                                     color: (item as any).overlay_style_json?.color || '#ffffff',
                                     fontSize: `${((item as any).overlay_style_json?.fontSize || 54) / 4}px`,
                                     fontFamily: (item as any).overlay_style_json?.fontFamily || 'Bebas Neue',
@@ -172,8 +175,8 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
                                     lineHeight: 1.1,
                                     textShadow: (item as any).overlay_style_json?.shadow || '0 2px 8px rgba(0,0,0,0.8)',
                                     textAlign: 'center',
-                                    width: '100%',
-                                    left: 0
+                                    width: '90%',
+                                    opacity: (item as any).overlay_style_json?.opacity ?? 1
                                 }}
                             >
                                 {(item as any).overlay_text_content}

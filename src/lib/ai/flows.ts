@@ -213,16 +213,22 @@ export async function runCopywriterFlow(input: CopywriterInput): Promise<AIRespo
     - Weave the Competitive Differential: "${strategyContext?.differential || input.context.differential}" into the text.
     - Mention the core offering: "${input.context.offering}".
     ${input.context.target_url ? `- MANDATORY RULE: You must include the link "${input.context.target_url}" in the body text with a clear and compelling call-to-action (CTA) for the user to visit the site.` : ''}
-    - Language: **${input.context.language}**.
+    - STRICT Language adherence: EVERY field (headline, body, cta, image_title) MUST be written in ${input.context.language}.
     
     VISUAL STRUCTURE & FORMATTING (MANDATORY):
-    - Use DOUBLE LINE BREAKS between paragraphs for readability.
-    - Use **BOLD TITLES** for different sections if the post is long (e.g. **Beneficios**, **Cómo funciona**).
+    - Use double NEWLINE CHARACTERS (\n\n) between paragraphs for readability.
+    - Use BOLD TITLES for different sections if the post is long (e.g. Beneficios, Como funciona).
     - Ensure the text looks organized and easy to scan, not like a wall of text.
     - Hashtags MUST be placed at the VERY END of the body copy. 
     - Do NOT include hashtags inline within the text.
     
-    Output Format: JSON object with keys: "headline", "body_copy", "cta", "hashtags" (array), "framework_used", "image_title" (ultra-short, high-impact text for image overlay, 1-5 words max), "angle_assigned".
+    IMAGE OVERLAY TEXT RULES:
+    1. The field "image_title" is the TEXT TO BE BAKED ONTO THE IMAGE.
+    2. It MUST BE PUNCHY, CATCHY, AND ULTRA-SHORT (1-5 words).
+    3. IT MUST BE WRITTEN IN ${input.context.language}.
+    4. IT WILL BE USED VERBATIM. NEVER MODIFY, PARAPHRASE, OR TRANSLATE IT AFTER GENERATION.
+    
+    Output Format: JSON object with keys: "headline", "body_copy", "cta", "hashtags" (array), "framework_used", "image_title" (The verbatim text for image overlay), "angle_assigned".
   `
     return generateJSON<CopywriterOutput>(prompt)
 }
@@ -251,10 +257,9 @@ export async function runVisualArtistFlow(input: VisualArtistInput): Promise<AIR
       
       INSTRUCTION: You MUST incorporate the Style, Mood, and Color Palette described above into your visual design. These are non-negotiable.
       
-      Visual Composition (CRITICAL):
-      - DO NOT RENDER ANY TEXT, LETTERS, OR CHARACTERS.
-      - THE IMAGE MUST BE COMPLETELY CLEAN OF ANY WRITTEN WORDS.
-      - Focus on artistic quality and high-end aesthetics.
+      Visual Composition & Typography:
+      - You MAY include text, words, or letters if they enhance the composition (e.g., signage, logos, or integrated titles).
+      - Ensure high-end aesthetics and professional lighting.
       
       ${input.customInstructions ? `- MASTER CREATIVE DIRECTIVE: ${input.customInstructions}` : ''}
       

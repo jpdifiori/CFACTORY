@@ -5,8 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Instagram, Facebook, Linkedin, Twitter, Music,
-    ExternalLink, Lock, Settings, CheckCircle2,
-    AlertCircle, Loader2, X, Plus, ShieldCheck, Zap
+    ExternalLink, Lock, Settings, CheckCircle2, AlertCircle, Loader2, X, Plus, Zap
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
@@ -14,7 +13,7 @@ import { useTitle } from '@/context/TitleContext'
 import {
     saveSocialConnectionAction,
     testSocialConnectionAction,
-    updateSafetyZonesAction
+    deleteSocialConnectionAction
 } from '@/app/actions/socialActions'
 
 const PLATFORMS = [
@@ -48,14 +47,6 @@ export default function ConnectionsPage() {
     })
     const [submitting, setSubmitting] = useState(false)
     const [testingId, setTestingId] = useState<string | null>(null)
-
-    // Safety Zones State
-    const [safetyZones, setSafetyZones] = useState({
-        bottom_clearance: 20,
-        top_clearance: 10,
-        side_clearance: 5
-    })
-    const [savingZones, setSavingZones] = useState(false)
 
     useEffect(() => {
         setTitle(t.connections.title)
@@ -94,9 +85,6 @@ export default function ConnectionsPage() {
             if (connRes.data) setConnections(connRes.data)
             if (projRes.data) {
                 setProject(projRes.data)
-                if (projRes.data.safety_zones) {
-                    setSafetyZones({ ...safetyZones, ...projRes.data.safety_zones })
-                }
             }
         } catch (error) {
             console.error('Error fetching connections:', error)
@@ -214,17 +202,32 @@ export default function ConnectionsPage() {
         }
     }
 
-    const handleSaveSafetyZones = async () => {
-        setSavingZones(true)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
+
+
+    const handleDeleteClick = (connectionId: string) => {
+        setConnectionToDelete(connectionId)
+        setShowDeleteModal(true)
+    }
+
+    const confirmDelete = async () => {
+        if (!connectionToDelete) return
+
+        setLoading(true)
         try {
-            const res = await updateSafetyZonesAction(projectId, safetyZones)
+            const res = await deleteSocialConnectionAction(connectionToDelete, projectId)
             if (res.success) {
-                alert(t.settings.success)
+                setShowDeleteModal(false)
+                setConnectionToDelete(null)
+                fetchData()
+            } else {
+                alert('Error deleting connection: ' + res.error)
             }
         } catch (error) {
-            alert(t.settings.error)
+            alert('An unexpected error occurred.')
         } finally {
-            setSavingZones(false)
+            setLoading(false)
         }
     }
 
@@ -255,141 +258,103 @@ export default function ConnectionsPage() {
                 <p className="text-gray-400">{t.connections.subtitle}</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="max-w-4xl mx-auto space-y-8">
                 {/* Connections Grid */}
-                <div className="lg:col-span-2 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {PLATFORMS.map((platform) => {
-                            const connection = connections.find(c => c.platform === platform.id)
-                            return (
-                                <motion.div
-                                    key={platform.id}
-                                    whileHover={{ scale: 1.02 }}
-                                    className="glass p-6 rounded-[2rem] border-white/5 shadow-xl flex flex-col justify-between"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Active Connections */}
+                    {connections.length > 0 && connections.map((connection) => {
+                        const platform = PLATFORMS.find(p => p.id === connection.platform) || {
+                            id: connection.platform,
+                            name: connection.platform,
+                            icon: Zap,
+                            color: 'text-gray-400',
+                            bg: 'bg-gray-400/10'
+                        }
+
+                        return (
+                            <motion.div
+                                key={connection.id}
+                                whileHover={{ scale: 1.02 }}
+                                className="glass p-6 rounded-[2rem] border-white/5 shadow-xl flex flex-col justify-between"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`p-4 ${platform.bg} rounded-2xl`}>
+                                        <platform.icon className={`w-8 h-8 ${platform.color}`} />
+                                    </div>
+                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${connection.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                                        }`}>
+                                        {connection.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                                        {connection.status}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xl font-bold text-white mb-1">{platform.name}</h3>
+                                    <p className="text-sm text-gray-500 mb-6 italic">
+                                        {connection.account_name || t.connections.no_account}
+                                    </p>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleTest(connection.id)}
+                                            disabled={testingId === connection.id}
+                                            className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {testingId === connection.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3 text-yellow-400" />}
+                                            {t.connections.test_bridge}
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteClick(connection.id)}
+                                            className="p-3 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-xl transition-all"
+                                            title={t.connections.delete || "Delete connection"}
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )
+                    })}
+
+                    {/* Available Platforms to Connect */}
+                    {PLATFORMS.filter(p => !connections.some(c => c.platform === p.id)).map((platform) => (
+                        <motion.div
+                            key={platform.id}
+                            whileHover={{ scale: 1.02 }}
+                            className="glass p-6 rounded-[2rem] border-white/5 shadow-xl flex flex-col justify-between opacity-60 hover:opacity-100 transition-opacity"
+                        >
+                            <div className="flex items-start justify-between mb-4">
+                                <div className={`p-4 ${platform.bg} rounded-2xl`}>
+                                    <platform.icon className={`w-8 h-8 ${platform.color}`} />
+                                </div>
+                                <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                                    {t.connections.disconnected}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-1">{platform.name}</h3>
+                                <p className="text-sm text-gray-500 mb-6 italic">
+                                    {t.connections.no_account}
+                                </p>
+
+                                <button
+                                    onClick={() => handleConnectClick(platform)}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
                                 >
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className={`p-4 ${platform.bg} rounded-2xl`}>
-                                            <platform.icon className={`w-8 h-8 ${platform.color}`} />
-                                        </div>
-                                        {connection ? (
-                                            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${connection.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                                                }`}>
-                                                {connection.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                                                {connection.status}
-                                            </div>
-                                        ) : (
-                                            <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-gray-500 uppercase tracking-wider">
-                                                {t.connections.disconnected}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-1">{platform.name}</h3>
-                                        <p className="text-sm text-gray-500 mb-6 italic">
-                                            {connection ? connection.account_name : t.connections.no_account}
-                                        </p>
-
-                                        {connection ? (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleTest(connection.id)}
-                                                    disabled={testingId === connection.id}
-                                                    className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2"
-                                                >
-                                                    {testingId === connection.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3 text-yellow-400" />}
-                                                    {t.connections.test_bridge}
-                                                </button>
-                                                <button className="p-3 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-xl transition-all">
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleConnectClick(platform)}
-                                                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
-                                            >
-                                                {t.connections.connect_account}
-                                            </button>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            )
-                        })}
-                    </div>
+                                    {t.connections.connect_account}
+                                </button>
+                            </div>
+                        </motion.div>
+                    ))}
                 </div>
 
-                {/* Right Panel: Safety Zones */}
-                <div className="space-y-8">
-                    <div className="glass p-8 rounded-[2.5rem] border-white/5 shadow-2xl">
-                        <div className="flex items-center gap-3 mb-6">
-                            <ShieldCheck className="w-6 h-6 text-green-400" />
-                            <h2 className="text-xl font-black text-white italic">{t.connections.safety_zones_title}</h2>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-8 leading-relaxed">
-                            {t.connections.safety_zones_desc}
+                <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-3xl mt-12">
+                    <div className="flex gap-4">
+                        <Lock className="w-6 h-6 text-yellow-500 shrink-0" />
+                        <p className="text-[10px] font-medium text-yellow-500/80 leading-relaxed uppercase tracking-wider">
+                            {t.connections.encryption_notice}
                         </p>
-
-                        <div className="space-y-6">
-                            <div className="space-y-3">
-                                <div className="flex justify-between text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                                    <span>{t.connections.bottom_clearance}</span>
-                                    <span className="text-blue-400">{safetyZones.bottom_clearance}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0" max="50" step="1"
-                                    className="w-full accent-blue-600"
-                                    value={safetyZones.bottom_clearance}
-                                    onChange={(e) => setSafetyZones({ ...safetyZones, bottom_clearance: parseInt(e.target.value) })}
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex justify-between text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                                    <span>{t.connections.top_clearance}</span>
-                                    <span className="text-blue-400">{safetyZones.top_clearance}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0" max="40" step="1"
-                                    className="w-full accent-blue-600"
-                                    value={safetyZones.top_clearance}
-                                    onChange={(e) => setSafetyZones({ ...safetyZones, top_clearance: parseInt(e.target.value) })}
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex justify-between text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                                    <span>{t.connections.side_clearance}</span>
-                                    <span className="text-blue-400">{safetyZones.side_clearance}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0" max="20" step="1"
-                                    className="w-full accent-blue-600"
-                                    value={safetyZones.side_clearance}
-                                    onChange={(e) => setSafetyZones({ ...safetyZones, side_clearance: parseInt(e.target.value) })}
-                                />
-                            </div>
-
-                            <button
-                                onClick={handleSaveSafetyZones}
-                                disabled={savingZones}
-                                className="w-full mt-4 bg-white/5 hover:bg-white/10 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-2 border border-white/5"
-                            >
-                                {savingZones ? <Loader2 className="w-4 h-4 animate-spin" /> : t.connections.apply_context}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-3xl">
-                        <div className="flex gap-4">
-                            <Lock className="w-6 h-6 text-yellow-500 shrink-0" />
-                            <p className="text-[10px] font-medium text-yellow-500/80 leading-relaxed uppercase tracking-wider">
-                                {t.connections.encryption_notice}
-                            </p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -496,6 +461,48 @@ export default function ConnectionsPage() {
                                     {submitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${t.connections.modal.authorize} ${selectedPlatform.name}`}
                                 </button>
                             </form>
+                        </motion.div>
+                    </div>
+                )}
+                {/* Delete Confirmation Modal */}
+                {showDeleteModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowDeleteModal(false)}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-[#0f0f0f] border border-red-500/20 p-8 rounded-[2.5rem] shadow-2xl relative z-10 max-w-sm w-full text-center"
+                        >
+                            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <AlertCircle className="w-8 h-8 text-red-500" />
+                            </div>
+
+                            <h3 className="text-xl font-black text-white mb-2">{t.connections.delete}</h3>
+                            <p className="text-sm text-gray-400 mb-8 leading-relaxed">
+                                {t.connections.delete_confirm}
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="bg-white/5 hover:bg-white/10 text-white py-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all"
+                                >
+                                    {t.common.cancel}
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="bg-red-500 hover:bg-red-600 text-white py-4 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-red-500/20"
+                                >
+                                    {t.common.delete}
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}

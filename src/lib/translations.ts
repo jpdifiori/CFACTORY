@@ -29,6 +29,8 @@ export interface Translation {
         side_clearance: string
         apply_context: string
         encryption_notice: string
+        delete: string
+        delete_confirm: string
         modal: {
             sync: string
             handshake: string
@@ -296,6 +298,7 @@ export interface Translation {
         ready_activation: string
         ready_activation_desc: string
         inspecting_logic: string
+        optimize: string
         system_role: string
         business_context: string
         master_directives: string
@@ -427,6 +430,8 @@ export const translations: Record<Language, Translation> = {
             side_clearance: "Sides Margin",
             apply_context: "Apply Global Context",
             encryption_notice: "All credentials are encrypted client-side and stored in our secure vault. We never store plain-text access tokens.",
+            delete: "Delete Connection",
+            delete_confirm: "Are you sure you want to delete this connection? This will impede any scheduled content from being published.",
             modal: {
                 sync: "Sync",
                 handshake: "Secure Handshake",
@@ -804,6 +809,7 @@ export const translations: Record<Language, Translation> = {
             save_success: "Campaign configuration saved successfully!",
             ready_activation: "Ready for Activation",
             ready_activation_desc: "Select content type and quantity above to populate this campaign.",
+            optimize: "Optimize with AI",
             inspecting_logic: "Inspecting live logic for",
             system_role: "SYSTEM ROLE",
             business_context: "BUSINESS CONTEXT (PROJECT)",
@@ -934,6 +940,8 @@ export const translations: Record<Language, Translation> = {
             side_clearance: "Márgenes Laterales",
             apply_context: "Aplicar Contexto Global",
             encryption_notice: "Todas las credenciales se cifran del lado del cliente y se guardan en nuestra bóveda segura. Nunca almacenamos tokens en texto plano.",
+            delete: "Eliminar Conexión",
+            delete_confirm: "¿Estás seguro de que deseas eliminar esta conexión? Esto evitará que se publique contenido programado.",
             modal: {
                 sync: "Sincronizar",
                 handshake: "Enlace Seguro",
@@ -1311,6 +1319,7 @@ export const translations: Record<Language, Translation> = {
             save_success: "¡Configuración de campaña guardada con éxito!",
             ready_activation: "Listo para Activación",
             ready_activation_desc: "Selecciona tipo y cantidad arriba para poblar esta campaña.",
+            optimize: "Optimizar con IA",
             inspecting_logic: "Inspeccionando lógica en vivo para",
             system_role: "ROL DEL SISTEMA",
             business_context: "CONTEXTO DE NEGOCIO (PROYECTO)",
