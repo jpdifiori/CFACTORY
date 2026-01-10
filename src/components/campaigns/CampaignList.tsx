@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Database } from '@/types/database.types'
-import { Target, Paintbrush, Calendar, ArrowRight, Zap, Settings } from 'lucide-react'
+import { Target, Paintbrush, Zap, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useLanguage } from '@/context/LanguageContext'
 

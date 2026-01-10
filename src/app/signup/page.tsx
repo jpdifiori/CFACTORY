@@ -2,10 +2,8 @@
 
 import React, { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-    Briefcase,
     User,
     Mail,
     Lock,
@@ -16,15 +14,16 @@ import {
     Sparkles,
     Loader2
 } from 'lucide-react'
+import { Database } from '@/types/database.types'
 
 type AccountType = 'Person' | 'Company'
+type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
 
 export default function SignupPage() {
     const [step, setStep] = useState(1)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const supabase = createClient()
-    const router = useRouter()
 
     // Form State
     const [accountType, setAccountType] = useState<AccountType>('Company')
@@ -56,7 +55,7 @@ export default function SignupPage() {
             if (!authData.user) throw new Error('Failed to create account')
 
             // 2. Create Profile - Only send relevant fields
-            const profileData: any = {
+            const profileData: ProfileInsert = {
                 id: authData.user.id,
                 account_type: accountType,
                 full_name: fullName,
@@ -70,6 +69,7 @@ export default function SignupPage() {
                 profileData.job_title = jobTitle
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error: profileError } = await (supabase
                 .from('profiles') as any)
                 .insert([profileData])
@@ -77,6 +77,7 @@ export default function SignupPage() {
             if (profileError) throw profileError
 
             setStep(4) // Success step
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             setError(err.message || 'Error creating account')
         } finally {

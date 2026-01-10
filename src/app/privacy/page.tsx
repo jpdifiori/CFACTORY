@@ -56,7 +56,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">6. Your Rights</h2>
                         <p>
-                            You may access, correct, or delete your personal information by managing your account settings or contacting us. You can revoke social media permissions at any time via the specific platform's security settings.
+                            You may access, correct, or delete your personal information by managing your account settings or contacting us. You can revoke social media permissions at any time via the specific platform&apos;s security settings.
                         </p>
                     </section>
 

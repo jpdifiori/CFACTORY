@@ -17,7 +17,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">1. Acceptance of Terms</h2>
                         <p>
-                            By accessing and using Cfabric ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.
+                            By accessing and using Cfabric (&quot;the Service&quot;), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.
                         </p>
                     </section>
 
@@ -52,7 +52,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">6. Limitation of Liability</h2>
                         <p>
-                            Cfabric is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
+                            Cfabric is provided &quot;as is&quot; without warranties of any kind. We shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
                         </p>
                     </section>
 
