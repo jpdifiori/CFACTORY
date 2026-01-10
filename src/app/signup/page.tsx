@@ -69,8 +69,8 @@ export default function SignupPage() {
                 profileData.job_title = jobTitle
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error: profileError } = await (supabase
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .from('profiles') as any)
                 .insert([profileData])
 
