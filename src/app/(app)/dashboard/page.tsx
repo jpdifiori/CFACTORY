@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from "react";
-import { ArrowUpRight, Plus, Rocket, Zap, Clock } from "lucide-react";
+import { ArrowUpRight, Plus, Rocket, Zap } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Database } from "@/types/database.types";
