@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { ArrowLeft, Save, Sparkles, Paintbrush, Target, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Paintbrush, Target, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { Database } from '@/types/database.types'
 import { CreatableSelect } from '@/components/ui/CreatableSelect'
@@ -57,7 +57,7 @@ export default function EditCampaignPage() {
     const supabase = createClient()
     const projectId = params.id as string
     const campaignId = params.campaignId as string
-    const { t, lang } = useLanguage()
+    const { t } = useLanguage()
     const { setTitle } = useTitle()
     const [projectName, setProjectName] = useState('')
 
@@ -81,16 +81,48 @@ export default function EditCampaignPage() {
     const [tempPillar, setTempPillar] = useState('')
 
     useEffect(() => {
+        const fetchProject = async () => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data } = await (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
+            if (data) setProjectName(data.app_name)
+        }
+
+        const fetchCampaign = async () => {
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data, error } = await (supabase
+                    .from('campaigns')
+                    .select('*')
+                    .eq('id', campaignId)
+                    .single() as any)
+
+                if (error) throw error
+                if (data) {
+                    setFormData({
+                        name: data.name || '',
+                        objective: data.objective as Objective,
+                        pillars: data.pillars || [],
+                        cta: data.cta || '',
+                        visual_style: data.visual_style as VisualStyle,
+                        color_palette: data.color_palette || '',
+                        mood: data.mood || '',
+                        custom_copy_instructions: data.custom_copy_instructions || '',
+                        custom_visual_instructions: data.custom_visual_instructions || ''
+                    })
+                }
+            } catch (error) {
+                console.error('Error fetching campaign:', error)
+                alert('Failed to load campaign data.')
+            } finally {
+                setLoading(false)
+            }
+        }
+
         if (campaignId && projectId) {
             fetchCampaign()
             fetchProject()
         }
-    }, [campaignId, projectId])
-
-    const fetchProject = async () => {
-        const { data } = await (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
-        if (data) setProjectName(data.app_name)
-    }
+    }, [campaignId, projectId, supabase])
 
     useEffect(() => {
         if (formData.name) {
@@ -98,36 +130,6 @@ export default function EditCampaignPage() {
         }
         return () => setTitle('')
     }, [projectName, formData.name, setTitle, t.projects.edit_title])
-
-    const fetchCampaign = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('campaigns')
-                .select('*')
-                .eq('id', campaignId)
-                .single() as any
-
-            if (error) throw error
-            if (data) {
-                setFormData({
-                    name: data.name || '',
-                    objective: data.objective as Objective,
-                    pillars: data.pillars || [],
-                    cta: data.cta || '',
-                    visual_style: data.visual_style as VisualStyle,
-                    color_palette: data.color_palette || '',
-                    mood: data.mood || '',
-                    custom_copy_instructions: data.custom_copy_instructions || '',
-                    custom_visual_instructions: data.custom_visual_instructions || ''
-                })
-            }
-        } catch (error) {
-            console.error('Error fetching campaign:', error)
-            alert('Failed to load campaign data.')
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const addPillar = () => {
         if (tempPillar.trim() && !formData.pillars?.includes(tempPillar.trim())) {
@@ -144,9 +146,10 @@ export default function EditCampaignPage() {
         setSaving(true)
 
         try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase
                 .from('campaigns') as any)
-                .update(formData as any)
+                .update(formData)
                 .eq('id', campaignId)
 
             if (error) throw error
@@ -178,7 +181,7 @@ export default function EditCampaignPage() {
 
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-white mb-2">Edit Campaign Strategy</h1>
-                <p className="text-muted-foreground">Modify the core strategy and visual direction for "{formData.name}".</p>
+                <p className="text-muted-foreground">Modify the core strategy and visual direction for &quot;{formData.name}&quot;.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
