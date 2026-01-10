@@ -148,7 +148,7 @@ export function IdeaGenerator({ project, campaign, onSelectIdea }: IdeaGenerator
                                     {lastSelection === idea.title && <CheckCircle2 className="w-4 h-4 text-primary" />}
                                 </div>
                                 <h4 className="text-sm font-bold text-white mb-2 leading-tight group-hover:text-primary transition-colors">{idea.title}</h4>
-                                <p className="text-[11px] text-gray-400 leading-relaxed mb-4 line-clamp-3 italic">"{idea.description}"</p>
+                                <p className="text-[11px] text-gray-400 leading-relaxed mb-4 line-clamp-3 italic">&quot;{idea.description}&quot;</p>
 
                                 <div className="bg-black/20 rounded-xl p-3 border border-white/5 mb-4 group-hover:border-primary/20 transition-all">
                                     <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -194,7 +194,7 @@ export function IdeaGenerator({ project, campaign, onSelectIdea }: IdeaGenerator
                                                             : 'bg-black/40 border-white/10 text-white/60 hover:border-white/30 hover:text-white'
                                                             }`}
                                                     >
-                                                        "{txt}"
+                                                        &quot;{txt}&quot;
                                                     </button>
                                                 );
                                             })}

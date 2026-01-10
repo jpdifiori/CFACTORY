@@ -102,7 +102,7 @@ export function MarketInsights({ data, isLoading }: MarketInsightsProps) {
                         {viral_card.hooks?.map((hook, i) => (
                             <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
                                 <span className="text-pink-500 font-bold mt-0.5">•</span>
-                                <span className="italic">"{hook}"</span>
+                                <span className="italic">&quot;{hook}&quot;</span>
                             </li>
                         ))}
                     </ul>
