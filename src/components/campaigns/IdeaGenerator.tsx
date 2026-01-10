@@ -5,10 +5,14 @@ import { Sparkles, Lightbulb, CheckCircle2, Loader2, Zap, Paintbrush, Layout } f
 import { useLanguage } from '@/context/LanguageContext'
 import { CampaignIdea } from '@/lib/ai/flows'
 import { generateCampaignIdeasAction } from '@/app/actions/ai'
+import { Database } from '@/types/database.types'
+
+type Project = Database['public']['Tables']['project_master']['Row']
+type Campaign = Database['public']['Tables']['campaigns']['Row']
 
 interface IdeaGeneratorProps {
-    project: any
-    campaign: any
+    project: Project
+    campaign: Campaign
     onSelectIdea: (idea: CampaignIdea) => void
 }
 
@@ -29,9 +33,9 @@ export function IdeaGenerator({ project, campaign, onSelectIdea }: IdeaGenerator
                     companyName: project.app_name,
                     niche: project.niche_vertical,
                     targetAudience: campaign.target_orientation || project.target_audience,
-                    problemSolved: campaign.problem_solved || project.problem_solved,
-                    offering: project.description,
-                    differential: project.usp,
+                    problemSolved: campaign.problem_solved || project.problem_solved || '',
+                    offering: project.description || '',
+                    differential: project.usp || '',
                     topic: campaign.topic || project.niche_vertical,
                     strategicObjective: campaign.strategic_objective || campaign.objective,
                     target_url: campaign.target_url
@@ -151,9 +155,7 @@ export function IdeaGenerator({ project, campaign, onSelectIdea }: IdeaGenerator
                                         <Paintbrush className="w-3 h-3 text-primary" /> {lang === 'es' ? 'Imagen Recomendada' : 'Recommended Image'}
                                     </p>
                                     <p className="text-[10px] text-gray-300 leading-snug line-clamp-2 italic">
-                                        {typeof idea.visual_prompt === 'string'
-                                            ? idea.visual_prompt
-                                            : (idea.visual_prompt as any)?.description || (idea.visual_prompt as any)?.title || 'Visual recommendation'}
+                                        {idea.visual_prompt}
                                     </p>
                                 </div>
 

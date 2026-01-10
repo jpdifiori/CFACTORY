@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save, RefreshCw, Sparkles, Loader2, FileText, ImageIcon, Type } from 'lucide-react'
 import { Database } from '@/types/database.types'
-import { createClient } from '@/utils/supabase/client'
 import { ImageTextEditor } from './ImageTextEditor'
 import { EditorStyle } from './SmartTextEditor'
 
@@ -44,8 +43,6 @@ export function QuickEditor({ isOpen, onClose, onSave, item: rawItem }: QuickEdi
     const [overlayText, setOverlayText] = useState('')
     const [overlayStyle, setOverlayStyle] = useState<EditorStyle | null>(null)
     const [showTextEditor, setShowTextEditor] = useState(false)
-
-    const supabase = createClient()
 
     const [prevItemId, setPrevItemId] = useState<string | null>(null)
 
@@ -182,7 +179,7 @@ export function QuickEditor({ isOpen, onClose, onSave, item: rawItem }: QuickEdi
                                                 <ImageTextEditor
                                                     imageUrl={displayImageUrl}
                                                     initialText={overlayText}
-                                                    initialStyle={overlayStyle}
+                                                    initialStyle={overlayStyle || undefined}
                                                     onUpdate={(txt, stl) => {
                                                         setOverlayText(txt)
                                                         setOverlayStyle(stl)

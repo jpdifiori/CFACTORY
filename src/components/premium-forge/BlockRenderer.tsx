@@ -1,27 +1,27 @@
 'use client';
 
 import React from 'react';
-import { BlockType } from '@/lib/ai/block-schemas';
+import { BlockType, BlockContent, HeroBlockContent, FeatureSplitBlockContent, MultiColumnBlockContent, QuoteBlockContent, CTABlockContent, DeepTextBlockContent } from '@/lib/ai/block-schemas';
 import { Quote, Star, ArrowRight, Code, MoveUp, MoveDown, Trash2, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 
 interface BlockRendererProps {
     id: string;
     type: BlockType;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    content: any;
+    content: BlockContent;
     status?: 'Pending' | 'Generating' | 'Completed' | 'Error' | 'ProcessingImage';
     imageUrl?: string;
     htmlOverride?: string;
     isEditing?: boolean;
     onSelection?: () => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onUpdate: (updates: any) => Promise<void>;
+    // content_json and content_html are the database fields we update
+    onUpdate: (updates: { content_json?: BlockContent; content_html?: string }) => Promise<void>;
     onMove: (direction: 'up' | 'down') => void;
     onDelete: () => void;
+    reasoning?: string;
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
-    id, type, content, status = 'Completed', imageUrl, htmlOverride, isEditing, onSelection, onUpdate, onMove, onDelete
+    id, type, content, status = 'Completed', imageUrl, htmlOverride, isEditing, onSelection, onUpdate, onMove, onDelete, reasoning
 }) => {
     const [isEditingSource, setIsEditingSource] = React.useState(false);
     const [sourceContent, setSourceContent] = React.useState(htmlOverride || '');
@@ -54,12 +54,12 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                     <><Loader2 className="w-3 h-3 animate-spin" /> Synthesizing Content</>
                 )}
             </div>
-            {content?.reasoning && (
+            {reasoning && (
                 <div className="mt-8 p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                         <Code className="w-3 h-3" /> Block Strategy
                     </div>
-                    <p className="text-sm text-gray-600 italic leading-relaxed">&quot;{content.reasoning}&quot;</p>
+                    <p className="text-sm text-gray-600 italic leading-relaxed">&quot;{reasoning}&quot;</p>
                 </div>
             )}
         </div>
@@ -98,6 +98,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
         switch (type) {
             case 'Hero':
+                const heroContent = content as HeroBlockContent;
                 return (
                     <div
                         className="relative py-24 px-12 overflow-hidden bg-black text-white transition-all duration-500"
@@ -124,28 +125,28 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                             <h1
                                 contentEditable={isEditing}
                                 suppressContentEditableWarning={true}
-                                onBlur={(e) => onUpdate({ content_json: { ...content, mainTitle: e.currentTarget.innerText } })}
+                                onBlur={(e) => onUpdate({ content_json: { ...heroContent, mainTitle: e.currentTarget.innerText } })}
                                 onMouseUp={onSelection}
                                 onKeyUp={onSelection}
                                 className={`text-6xl font-black mb-6 leading-tight uppercase tracking-tighter outline-none ${isEditing ? 'hover:bg-white/5 focus:bg-white/10 rounded-lg p-2 transition-all' : ''}`}
                                 style={{ letterSpacing: 'var(--atomic-letter-spacing)', color: 'var(--atomic-accent)' }}
                             >
-                                {content?.mainTitle || 'Chapter Heading'}
+                                {heroContent.mainTitle || 'Chapter Heading'}
                             </h1>
                             <p
                                 contentEditable={isEditing}
                                 suppressContentEditableWarning={true}
-                                onBlur={(e) => onUpdate({ content_json: { ...content, description: e.currentTarget.innerText } })}
+                                onBlur={(e) => onUpdate({ content_json: { ...heroContent, description: e.currentTarget.innerText } })}
                                 onMouseUp={onSelection}
                                 onKeyUp={onSelection}
                                 className={`text-xl text-gray-300 font-medium mb-8 leading-relaxed outline-none ${isEditing ? 'hover:bg-white/5 focus:bg-white/10 rounded-lg p-2 transition-all' : ''}`}
                                 style={{ fontFamily: 'var(--atomic-font-body)' }}
                             >
-                                {content?.description || 'Chapter Subtitle or descriptive intro text hook.'}
+                                {heroContent.description || 'Chapter Subtitle or descriptive intro text hook.'}
                             </p>
-                            {content?.ctaText && (
+                            {heroContent.ctaText && (
                                 <button className="bg-primary text-white px-8 py-4 rounded-full font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg shadow-primary/20">
-                                    {content.ctaText}
+                                    {heroContent.ctaText}
                                 </button>
                             )}
                         </div>
@@ -153,7 +154,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 );
 
             case 'FeatureSplit':
-                const isImageLeft = content?.theme === 'image-left';
+                const splitContent = content as FeatureSplitBlockContent;
+                const isImageLeft = splitContent.theme === 'image-left';
                 return (
                     <div
                         className={`flex flex-col md:flex-row items-center py-16 ${isImageLeft ? '' : 'md:flex-row-reverse'}`}
@@ -168,7 +170,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                         >
                             {imageUrl && imageUrl.startsWith('http') ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={imageUrl} alt={content?.title} className="w-full h-full object-cover" />
+                                <img src={imageUrl} alt={splitContent.title} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="flex flex-col items-center gap-4 text-gray-300">
                                     <Sparkles className={`w-12 h-12 ${status === 'ProcessingImage' ? 'animate-bounce text-primary' : ''}`} />
@@ -179,44 +181,44 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                             )}
                         </div>
                         <div className="flex-1 space-y-6">
-                            {content?.featureLabel && (
+                            {splitContent.featureLabel && (
                                 <span
                                     className="text-xs font-black uppercase tracking-[0.3em] px-4 py-2 rounded-full transition-all"
                                     style={{ color: 'var(--atomic-accent)', backgroundColor: 'color-mix(in srgb, var(--atomic-accent), transparent 90%)' }}
                                 >
-                                    {content.featureLabel}
+                                    {splitContent.featureLabel}
                                 </span>
                             )}
                             <h2
                                 contentEditable={isEditing}
                                 suppressContentEditableWarning={true}
-                                onBlur={(e) => onUpdate({ content_json: { ...content, title: e.currentTarget.innerText } })}
+                                onBlur={(e) => onUpdate({ content_json: { ...splitContent, title: e.currentTarget.innerText } })}
                                 onMouseUp={onSelection}
                                 onKeyUp={onSelection}
                                 className={`text-4xl font-black text-gray-900 leading-tight outline-none ${isEditing ? 'hover:bg-black/5 focus:bg-black/5 rounded-lg p-1 transition-all' : ''}`}
                                 style={{ fontFamily: 'var(--atomic-font-heading)' }}
                             >
-                                {content?.title || 'Feature Title'}
+                                {splitContent.title || 'Feature Title'}
                             </h2>
                             <div
                                 contentEditable={isEditing}
                                 suppressContentEditableWarning={true}
-                                onBlur={(e) => onUpdate({ content_json: { ...content, text: e.currentTarget.innerHTML } })}
+                                onBlur={(e) => onUpdate({ content_json: { ...splitContent, text: e.currentTarget.innerHTML } })}
                                 onMouseUp={onSelection}
                                 onKeyUp={onSelection}
                                 className={`text-lg text-gray-600 leading-relaxed prose prose-slate max-w-none outline-none ${isEditing ? 'hover:bg-black/5 focus:bg-black/5 rounded-lg p-2 transition-all' : ''}`}
                                 style={{ fontFamily: 'var(--atomic-font-body)', lineHeight: 'var(--atomic-spacing)' }}
-                                dangerouslySetInnerHTML={{ __html: content?.text || 'Narrative content describing this feature or point.' }}
+                                dangerouslySetInnerHTML={{ __html: splitContent.text || 'Narrative content describing this feature or point.' }}
                             />
                         </div>
                     </div>
                 );
 
             case 'MultiColumn':
+                const multiColumnContent = content as MultiColumnBlockContent;
                 return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 py-12">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {(content?.columns || [{}, {}, {}]).map((col: any, idx: number) => (
+                        {(multiColumnContent.columns || [{}, {}, {}]).map((col, idx: number) => (
                             <div
                                 key={idx}
                                 className="p-8 border hover:border-primary/20 transition-all group"
@@ -237,9 +239,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                                     contentEditable={isEditing}
                                     suppressContentEditableWarning={true}
                                     onBlur={(e) => {
-                                        const newColumns = [...(content?.columns || [])];
+                                        const newColumns = [...(multiColumnContent.columns || [])];
                                         newColumns[idx] = { ...col, title: e.currentTarget.innerText };
-                                        onUpdate({ content_json: { ...content, columns: newColumns } });
+                                        onUpdate({ content_json: { ...multiColumnContent, columns: newColumns } });
                                     }}
                                     onMouseUp={onSelection}
                                     onKeyUp={onSelection}
@@ -252,9 +254,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                                     contentEditable={isEditing}
                                     suppressContentEditableWarning={true}
                                     onBlur={(e) => {
-                                        const newColumns = [...(content?.columns || [])];
+                                        const newColumns = [...(multiColumnContent.columns || [])];
                                         newColumns[idx] = { ...col, text: e.currentTarget.innerText };
-                                        onUpdate({ content_json: { ...content, columns: newColumns } });
+                                        onUpdate({ content_json: { ...multiColumnContent, columns: newColumns } });
                                     }}
                                     onMouseUp={onSelection}
                                     onKeyUp={onSelection}
@@ -269,6 +271,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 );
 
             case 'Quote':
+                const quoteContent = content as QuoteBlockContent;
                 return (
                     <div
                         className="py-20 px-8 border relative overflow-hidden transition-all duration-500"
@@ -287,39 +290,39 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                             <blockquote
                                 contentEditable={isEditing}
                                 suppressContentEditableWarning={true}
-                                onBlur={(e) => onUpdate({ content_json: { ...content, quote: e.currentTarget.innerText.replace(/^"(.*)"$/, '$1') } })}
+                                onBlur={(e) => onUpdate({ content_json: { ...quoteContent, quote: e.currentTarget.innerText.replace(/^"(.*)"$/, '$1') } })}
                                 onMouseUp={onSelection}
                                 onKeyUp={onSelection}
                                 className={`text-3xl font-bold italic text-gray-800 mb-8 leading-snug outline-none ${isEditing ? 'hover:bg-primary/5 rounded-2xl p-4 transition-all' : ''}`}
                                 style={{ fontFamily: 'var(--atomic-font-heading)' }}
                             >
-                                &quot;{content?.quote || 'Inspiring insight or categorical truth.'}&quot;
+                                &quot;{quoteContent.quote || 'Inspiring insight or categorical truth.'}&quot;
                             </blockquote>
                             <div className="flex flex-col items-center">
-                                {content?.authorImage && (
+                                {quoteContent.authorImage && (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={content.authorImage} alt={content.author} className="w-16 h-16 rounded-full mb-4 shadow-lg border-2 border-white" />
+                                    <img src={quoteContent.authorImage} alt={quoteContent.author} className="w-16 h-16 rounded-full mb-4 shadow-lg border-2 border-white" />
                                 )}
                                 <cite
                                     contentEditable={isEditing}
                                     suppressContentEditableWarning={true}
-                                    onBlur={(e) => onUpdate({ content_json: { ...content, author: e.currentTarget.innerText } })}
+                                    onBlur={(e) => onUpdate({ content_json: { ...quoteContent, author: e.currentTarget.innerText } })}
                                     onMouseUp={onSelection}
                                     onKeyUp={onSelection}
                                     className={`not-italic text-lg font-black text-gray-900 uppercase tracking-widest outline-none ${isEditing ? 'hover:bg-primary/5 rounded-lg px-4 py-1 transition-all' : ''}`}
                                 >
-                                    {content?.author || 'Author Name'}
+                                    {quoteContent.author || 'Author Name'}
                                 </cite>
-                                {content?.authorTitle && (
+                                {quoteContent.authorTitle && (
                                     <span
                                         contentEditable={isEditing}
                                         suppressContentEditableWarning={true}
-                                        onBlur={(e) => onUpdate({ content_json: { ...content, authorTitle: e.currentTarget.innerText } })}
+                                        onBlur={(e) => onUpdate({ content_json: { ...quoteContent, authorTitle: e.currentTarget.innerText } })}
                                         onMouseUp={onSelection}
                                         onKeyUp={onSelection}
                                         className={`text-gray-500 uppercase tracking-widest text-[10px] font-bold outline-none ${isEditing ? 'hover:bg-primary/5 rounded-lg px-2 mt-1 transition-all' : ''}`}
                                     >
-                                        {content.authorTitle}
+                                        {quoteContent.authorTitle}
                                     </span>
                                 )}
                             </div>
@@ -328,19 +331,21 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 );
 
             case 'DeepText':
+                const deepContent = content as DeepTextBlockContent;
                 return (
                     <div
                         contentEditable={isEditing}
                         suppressContentEditableWarning={true}
-                        onBlur={(e) => onUpdate({ content_json: { ...content, contentHtml: e.currentTarget.innerHTML } })}
+                        onBlur={(e) => onUpdate({ content_json: { ...deepContent, contentHtml: e.currentTarget.innerHTML } })}
                         onMouseUp={onSelection}
                         onKeyUp={onSelection}
                         className={`prose prose-xl max-w-none text-gray-800 leading-relaxed py-8 editorial-body font-serif px-4 outline-none ${isEditing ? 'hover:bg-black/5 focus:bg-black/5 rounded-3xl transition-all' : ''}`}
-                        dangerouslySetInnerHTML={{ __html: content?.contentHtml || 'Detailed editorial body text with <em>rich</em> formatting.' }}
+                        dangerouslySetInnerHTML={{ __html: deepContent.contentHtml || 'Detailed editorial body text with <em>rich</em> formatting.' }}
                     />
                 );
 
             case 'CTA':
+                const ctaContent = content as CTABlockContent;
                 return (
                     <div
                         className="py-16 px-12 text-white text-center transition-all duration-500"
@@ -353,27 +358,27 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                         <h2
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
-                            onBlur={(e) => onUpdate({ content_json: { ...content, title: e.currentTarget.innerText } })}
+                            onBlur={(e) => onUpdate({ content_json: { ...ctaContent, title: e.currentTarget.innerText } })}
                             onMouseUp={onSelection}
                             onKeyUp={onSelection}
                             className={`text-4xl font-black mb-6 uppercase tracking-tight outline-none ${isEditing ? 'hover:bg-white/10 rounded-2xl p-4 transition-all' : ''}`}
                             style={{ fontFamily: 'var(--atomic-font-heading)' }}
                         >
-                            {content?.title || 'Call to Action'}
+                            {ctaContent.title || 'Call to Action'}
                         </h2>
                         <p
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
-                            onBlur={(e) => onUpdate({ content_json: { ...content, description: e.currentTarget.innerText } })}
+                            onBlur={(e) => onUpdate({ content_json: { ...ctaContent, description: e.currentTarget.innerText } })}
                             onMouseUp={onSelection}
                             onKeyUp={onSelection}
                             className={`text-xl opacity-90 mb-10 max-w-2xl mx-auto outline-none ${isEditing ? 'hover:bg-white/10 rounded-2xl p-4 transition-all' : ''}`}
                             style={{ fontFamily: 'var(--atomic-font-body)' }}
                         >
-                            {content?.description || 'Conversion hook or transition to the next chapter.'}
+                            {ctaContent.description || 'Conversion hook or transition to the next chapter.'}
                         </p>
                         <button className="bg-white text-primary px-10 py-5 rounded-full font-black uppercase tracking-[0.2em] shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1">
-                            {content?.buttonText || 'Take Action'}
+                            {ctaContent.buttonText || 'Take Action'}
                         </button>
                     </div>
                 );

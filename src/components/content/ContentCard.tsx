@@ -5,6 +5,7 @@ import { MoreHorizontal, Edit, Trash2, Download, ExternalLink, Calendar, CheckCi
 import { Database } from '@/types/database.types'
 import { format } from 'date-fns'
 import { useLanguage } from '@/context/LanguageContext'
+import { EditorStyle } from './SmartTextEditor'
 
 type ContentItem = Database['public']['Tables']['content_queue']['Row']
 
@@ -15,7 +16,28 @@ interface ContentCardProps {
     onPublish: (id: string) => void
 }
 
-export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: ContentCardProps) {
+interface ExtendedItem extends Omit<ContentItem, 'gemini_output' | 'overlay_text_content' | 'overlay_style_json' | 'social_platform'> {
+    gemini_output: {
+        headline?: string;
+        body_copy?: string;
+        [key: string]: unknown;
+    } | null; // Database JSON can be null
+    overlay_text_content?: string | null; // Database text can be null
+    overlay_style_json?: {
+        fontSize?: number;
+        fontFamily?: string;
+        color?: string;
+        opacity?: number;
+        shadow?: string;
+        x?: number;
+        y?: number;
+        [key: string]: unknown;
+    } | null; // Database JSON can be null
+    social_platform?: string | null;
+}
+
+export function ContentCard({ item: rawItem, onEdit, onStatusUpdate, onPublish }: ContentCardProps) {
+    const item = rawItem as unknown as ExtendedItem
     const { t } = useLanguage()
     const [showMenu, setShowMenu] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
@@ -35,7 +57,7 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
         if (!rawUrl) return
 
         // If no text overlay, just download the image
-        if (!(item as any).overlay_text_content) {
+        if (!item.overlay_text_content) {
             try {
                 const cacheBusterUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
                 const response = await fetch(cacheBusterUrl)
@@ -77,19 +99,19 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
             ctx.drawImage(img, 0, 0)
 
             // Draw Overlay
-            const overlayText = (item as any).overlay_text_content
-            const style = (item as any).overlay_style_json || {}
+            const overlayText = item.overlay_text_content || ''
+            const style = item.overlay_style_json || {}
 
             // FONT SCALING FIX
             // Reference: 54px for a 1024px width image.
             const scaleFactor = canvas.width / 1024
-            let fontSize = (style.fontSize || 54) * scaleFactor
+            let fontSize = ((style as EditorStyle).fontSize || 54) * scaleFactor
             fontSize = Math.round(fontSize)
 
-            const fontFamily = style.fontFamily || 'Bebas Neue'
-            const color = style.color || '#ffffff'
-            const opacity = style.opacity ?? 1
-            const shadowIntensity = style.shadowIntensity ?? 0.8
+            const fontFamily = (style as EditorStyle).fontFamily || 'Bebas Neue'
+            const color = (style as EditorStyle).color || '#ffffff'
+            const opacity = (style as EditorStyle).opacity ?? 1
+            const shadowIntensity = (style as EditorStyle).shadowIntensity ?? 0.8
 
             ctx.globalAlpha = opacity
             ctx.textAlign = 'center'
@@ -145,7 +167,7 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
         }
     }
 
-    const output = item.gemini_output as any
+    const output = item.gemini_output
 
     return (
         <div className="group relative bg-secondary/30 border border-white/5 rounded-3xl overflow-hidden transition-all duration-500 hover:border-primary/30 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
@@ -160,26 +182,26 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
                         />
 
                         {/* Persistent Overlay Preview */}
-                        {(item as any).overlay_text_content && (
+                        {item.overlay_text_content && (
                             <div
                                 className="absolute pointer-events-none select-none px-4 py-2"
                                 style={{
-                                    top: `${(item as any).overlay_style_json?.y || 10}%`,
-                                    left: `${(item as any).overlay_style_json?.x || 50}%`,
+                                    top: `${item.overlay_style_json?.y || 10}%`,
+                                    left: `${item.overlay_style_json?.x || 50}%`,
                                     transform: 'translate(-50%, -50%)',
-                                    color: (item as any).overlay_style_json?.color || '#ffffff',
-                                    fontSize: `${((item as any).overlay_style_json?.fontSize || 54) / 4}px`,
-                                    fontFamily: (item as any).overlay_style_json?.fontFamily || 'Bebas Neue',
+                                    color: item.overlay_style_json?.color || '#ffffff',
+                                    fontSize: `${(item.overlay_style_json?.fontSize || 54) / 4}px`,
+                                    fontFamily: item.overlay_style_json?.fontFamily || 'Bebas Neue',
                                     whiteSpace: 'pre-wrap',
                                     fontWeight: 900,
                                     lineHeight: 1.1,
-                                    textShadow: (item as any).overlay_style_json?.shadow || '0 2px 8px rgba(0,0,0,0.8)',
+                                    textShadow: item.overlay_style_json?.shadow || '0 2px 8px rgba(0,0,0,0.8)',
                                     textAlign: 'center',
                                     width: '90%',
-                                    opacity: (item as any).overlay_style_json?.opacity ?? 1
+                                    opacity: item.overlay_style_json?.opacity ?? 1
                                 }}
                             >
-                                {(item as any).overlay_text_content}
+                                {item.overlay_text_content}
                             </div>
                         )}
                     </>
@@ -196,13 +218,13 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
                         {item.status.replace('_', ' ')}
                     </span>
                     <div className="flex gap-1">
-                        {(item as any).social_platform && (
+                        {item.social_platform && (
                             <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter bg-black/60 text-white/80 border border-white/10 backdrop-blur-sm">
-                                {(item as any).social_platform}
+                                {item.social_platform}
                             </span>
                         )}
                         <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter bg-primary/20 text-primary border border-primary/20 backdrop-blur-sm">
-                            {(t.campaigns as any)[item.content_type.toLowerCase()] || item.content_type}
+                            {(t.campaigns as Record<string, string>)[item.content_type.toLowerCase()] || item.content_type}
                         </span>
                     </div>
                 </div>
@@ -210,7 +232,7 @@ export function ContentCard({ item, onEdit, onStatusUpdate, onPublish }: Content
                 {/* Quick Actions Overlay */}
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3">
                     <button
-                        onClick={() => onEdit(item)}
+                        onClick={() => onEdit(item as unknown as ContentItem)}
                         className="p-4 bg-white/10 hover:bg-primary transition-all rounded-2xl border border-white/10 hover:border-primary group/btn active:scale-95"
                     >
                         <Edit className="w-5 h-5 text-white group-hover/btn:scale-110 transition-transform" />

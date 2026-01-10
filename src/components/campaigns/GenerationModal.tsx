@@ -97,7 +97,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, campaignName, loa
                             {['Español', 'Ingles'].map((lang) => (
                                 <button
                                     key={lang}
-                                    onClick={() => setLanguage(lang as any)}
+                                    onClick={() => setLanguage(lang as 'Español' | 'Ingles')}
                                     className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${language === lang
                                         ? 'bg-blue-500/10 border-blue-500 text-blue-400'
                                         : 'bg-secondary/30 border-white/5 text-gray-400 hover:text-white'

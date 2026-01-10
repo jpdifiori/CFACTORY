@@ -1,14 +1,15 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, PanInfo } from 'framer-motion'
 import { Type as TypeIcon } from 'lucide-react'
+import { EditorStyle } from './SmartTextEditor'
 
 interface ImageTextEditorProps {
     imageUrl: string
     initialText: string
-    initialStyle?: any
-    onUpdate: (text: string, style: any) => void
+    initialStyle?: EditorStyle
+    onUpdate: (text: string, style: EditorStyle) => void
 }
 
 const FONTS = [
@@ -26,7 +27,7 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
     const [text, setText] = useState(initialText || '')
 
     // Position state in percentages (0-100)
-    const [style, setStyle] = useState({
+    const [style, setStyle] = useState<EditorStyle>({
         x: 50,
         y: 10,
         fontSize: 54,
@@ -39,7 +40,7 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
 
     const containerRef = useRef<HTMLDivElement>(null)
 
-    const updateStyle = (patch: any) => {
+    const updateStyle = (patch: Partial<EditorStyle>) => {
         const rect = containerRef.current?.getBoundingClientRect()
         const newStyle = {
             ...style,
@@ -56,7 +57,7 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
         onUpdate(newText, style)
     }
 
-    const handleDragEnd = (_: any, info: any) => {
+    const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
         if (!containerRef.current) return
 
         const rect = containerRef.current.getBoundingClientRect()
@@ -66,15 +67,15 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
         const deltaYPercent = (info.offset.y / rect.height) * 100
 
         // New position = Old position + Delta
-        const newX = Math.max(0, Math.min(100, style.x + deltaXPercent))
-        const newY = Math.max(0, Math.min(100, style.y + deltaYPercent))
+        const newX = Math.max(0, Math.min(100, (style.x || 50) + deltaXPercent))
+        const newY = Math.max(0, Math.min(100, (style.y || 10) + deltaYPercent))
 
         updateStyle({ x: newX, y: newY })
     }
 
     useEffect(() => {
         if (initialText !== undefined) setText(initialText)
-        if (initialStyle) setStyle((prev: any) => ({ ...prev, ...initialStyle }))
+        if (initialStyle) setStyle((prev: EditorStyle) => ({ ...prev, ...initialStyle }))
     }, [initialText, initialStyle])
 
     return (
@@ -101,8 +102,8 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
                         onDragEnd={handleDragEnd}
                         style={{
                             position: 'absolute',
-                            left: `${style.x}%`,
-                            top: `${style.y}%`,
+                            left: `${style.x || 50}%`,
+                            top: `${style.y || 10}%`,
                             x: 0,
                             y: 0,
                             zIndex: 200,
@@ -124,7 +125,7 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
                                 textAlign: 'center',
                                 lineHeight: 1.1,
                                 opacity: style.opacity ?? 1,
-                                textShadow: `0 ${4 * style.shadowIntensity}px ${8 * style.shadowIntensity}px rgba(0,0,0,${Math.min(0.9, style.shadowIntensity)})`,
+                                textShadow: `0 ${4 * (style.shadowIntensity || 0.8)}px ${8 * (style.shadowIntensity || 0.8)}px rgba(0,0,0,${Math.min(0.9, style.shadowIntensity || 0.8)})`,
                                 whiteSpace: 'pre-wrap',
                                 padding: '1rem',
                                 border: '1px solid transparent',
@@ -186,7 +187,7 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
                             type="range"
                             min="20"
                             max="120"
-                            value={style.fontSize}
+                            value={style.fontSize || 54}
                             onChange={(e) => updateStyle({ fontSize: parseInt(e.target.value) })}
                             className="w-full accent-primary bg-white/10 h-1.5 rounded-full appearance-none cursor-pointer"
                         />
@@ -209,13 +210,13 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
                     <div className="space-y-2 pt-2">
                         <div className="flex justify-between items-center px-1">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Opacidad</label>
-                            <span className="text-[9px] font-mono text-primary">{Math.round(style.opacity * 100)}%</span>
+                            <span className="text-[9px] font-mono text-primary">{Math.round((style.opacity || 1) * 100)}%</span>
                         </div>
                         <input
                             type="range"
                             min="0"
                             max="100"
-                            value={style.opacity * 100}
+                            value={(style.opacity || 1) * 100}
                             onChange={(e) => updateStyle({ opacity: parseInt(e.target.value) / 100 })}
                             className="w-full accent-primary bg-white/10 h-1.5 rounded-full appearance-none cursor-pointer"
                         />
@@ -224,13 +225,13 @@ export function ImageTextEditor({ imageUrl, initialText, initialStyle, onUpdate 
                     <div className="space-y-2 pt-2">
                         <div className="flex justify-between items-center px-1">
                             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Sombra</label>
-                            <span className="text-[9px] font-mono text-primary">{Math.round(style.shadowIntensity * 100)}%</span>
+                            <span className="text-[9px] font-mono text-primary">{Math.round((style.shadowIntensity || 0.8) * 100)}%</span>
                         </div>
                         <input
                             type="range"
                             min="0"
                             max="100"
-                            value={style.shadowIntensity * 100}
+                            value={(style.shadowIntensity || 0.8) * 100}
                             onChange={(e) => updateStyle({ shadowIntensity: parseInt(e.target.value) / 100 })}
                             className="w-full accent-primary bg-white/10 h-1.5 rounded-full appearance-none cursor-pointer"
                         />
