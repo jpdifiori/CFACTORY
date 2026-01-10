@@ -2,9 +2,6 @@ import { supabase } from '@/lib/supabase'
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY // Or IMAGE_GENERATION_API_KEY
 
-interface GenerateImageResult {
-    url: string
-}
 
 /**
  * Generates an image using OpenAI DALL-E 3
@@ -57,7 +54,7 @@ export async function uploadImageToSupabase(imageUrl: string, projectId: string)
 
         // 2. Upload to Supabase
         const fileName = `${projectId}/${Date.now()}.png`
-        const { data, error } = await supabase
+        const { error } = await supabase
             .storage
             .from('project-images')
             .upload(fileName, buffer, {

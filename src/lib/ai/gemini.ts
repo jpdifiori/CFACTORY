@@ -20,6 +20,7 @@ const searchModel = genAI.getGenerativeModel({
     tools: [
         {
             google_search: {},
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
     ],
     generationConfig: {
@@ -56,10 +57,11 @@ export async function generateText(prompt: string): Promise<AIResponse<string>> 
                 total_tokens: usage.totalTokenCount
             }
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Gemini API Error (Text):', error)
         console.error('Prompt content:', prompt.slice(0, 500))
-        throw new Error(`Gemini Text Error: ${error.message || 'Unknown'}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Gemini Text Error: ${errorMessage}`)
     }
 }
 
@@ -96,7 +98,7 @@ export async function generateJSON<T>(prompt: string): Promise<AIResponse<T>> {
             try {
                 parsedData = JSON.parse(potentialJson) as T;
                 break;
-            } catch (e) {
+            } catch {
                 lastEndIndex = sanitizedText.lastIndexOf('}', lastEndIndex - 1);
             }
         }
@@ -118,11 +120,12 @@ export async function generateJSON<T>(prompt: string): Promise<AIResponse<T>> {
                 total_tokens: usage.totalTokenCount
             }
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Gemini API Error (JSON Mode):', error)
         console.error('RAW TEXT FROM AI:', rawText)
         console.error('SANITIZED TEXT:', sanitizedText)
-        throw new Error(`Gemini JSON Error: ${error.message || 'Unknown'}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Gemini JSON Error: ${errorMessage}`)
     }
 }
 
@@ -141,7 +144,7 @@ export async function generateSearchJSON<T>(prompt: string): Promise<AIResponse<
         console.log("Gemini API Response (Search) Received. Parsing JSON...")
 
         // Use the same healing logic
-        let sanitizedText = sanitizeJSONString(text);
+        const sanitizedText = sanitizeJSONString(text);
         const startIndex = sanitizedText.indexOf('{');
         if (startIndex === -1) throw new Error("No JSON found");
 
@@ -153,7 +156,7 @@ export async function generateSearchJSON<T>(prompt: string): Promise<AIResponse<
             try {
                 parsedData = JSON.parse(potentialJson) as T;
                 break;
-            } catch (e) {
+            } catch {
                 lastEndIndex = sanitizedText.lastIndexOf('}', lastEndIndex - 1);
             }
         }
@@ -168,9 +171,10 @@ export async function generateSearchJSON<T>(prompt: string): Promise<AIResponse<
                 total_tokens: usage.totalTokenCount
             }
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Gemini Search Error:', error)
-        throw new Error(`Gemini Search Error: ${error.message || 'Unknown'}`)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Gemini Search Error: ${errorMessage}`)
     }
 }
 
@@ -220,7 +224,7 @@ function sanitizeJSONString(str: string): string {
  * @param params Optional parameters (skipText, style, etc)
  * @returns Base64 image data or null
  */
-export async function generateImageGemini(prompt: string, params: any = {}): Promise<string | null> {
+export async function generateImageGemini(prompt: string, params: Record<string, any> = {}): Promise<string | null> {
     try {
         if (!apiKey) {
             throw new Error("GOOGLE_API_KEY is missing. Please set it in environment variables.");
@@ -286,8 +290,9 @@ export async function generateImageGemini(prompt: string, params: any = {}): Pro
 
         console.warn("Gemini: No predictions found in response.", JSON.stringify(data, null, 2));
         return null
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Gemini Image Error Detailed:', error);
-        throw new Error(`Gemini Image Error: ${error.message || 'Unknown'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Gemini Image Error: ${errorMessage}`);
     }
 }
