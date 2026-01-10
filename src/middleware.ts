@@ -2,7 +2,29 @@ import { type NextRequest } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-    return await updateSession(request)
+    const response = await updateSession(request)
+
+    // PERMISSIVE CSP: Allow eval() for AI libraries and all image origins to prevent breakage
+    const cspHeader = `
+        default-src 'self';
+        script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com https://*.googleapis.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com;
+        img-src * blob: data:;
+        font-src 'self' https://fonts.gstatic.com;
+        frame-src 'self' https://*.youtube.com https://*.vimeo.com;
+        connect-src *;
+        worker-src 'self' blob:;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        block-all-mixed-content;
+        upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim()
+
+    response.headers.set('Content-Security-Policy', cspHeader)
+
+    return response
 }
 
 export const config = {
