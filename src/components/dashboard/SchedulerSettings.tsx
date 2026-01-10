@@ -3,20 +3,30 @@
 import React, { useState } from 'react'
 import { Calendar, Clock, Plus, Trash2, Save, Sparkles } from 'lucide-react'
 
+interface DayConfig {
+    count: number
+    hours: string[]
+}
+
+interface ScheduleConfig {
+    workdays: DayConfig
+    weekends: DayConfig
+}
+
 interface ScheduleConfigProps {
-    config: any
-    onSave: (config: any) => void
+    config: ScheduleConfig
+    onSave: (config: ScheduleConfig) => void
     loading?: boolean
 }
 
 export function SchedulerSettings({ config, onSave, loading }: ScheduleConfigProps) {
-    const [localConfig, setLocalConfig] = useState(config || {
+    const [localConfig, setLocalConfig] = useState<ScheduleConfig>(config || {
         workdays: { count: 1, hours: ['09:00'] },
         weekends: { count: 1, hours: ['12:00'] }
     })
 
     const addHour = (type: 'workdays' | 'weekends') => {
-        setLocalConfig((prev: any) => ({
+        setLocalConfig((prev) => ({
             ...prev,
             [type]: {
                 ...prev[type],
@@ -27,8 +37,8 @@ export function SchedulerSettings({ config, onSave, loading }: ScheduleConfigPro
     }
 
     const removeHour = (type: 'workdays' | 'weekends', index: number) => {
-        const newHours = localConfig[type].hours.filter((_: any, i: number) => i !== index)
-        setLocalConfig((prev: any) => ({
+        const newHours = localConfig[type].hours.filter((_, i) => i !== index)
+        setLocalConfig((prev) => ({
             ...prev,
             [type]: {
                 ...prev[type],
@@ -41,7 +51,7 @@ export function SchedulerSettings({ config, onSave, loading }: ScheduleConfigPro
     const updateHour = (type: 'workdays' | 'weekends', index: number, value: string) => {
         const newHours = [...localConfig[type].hours]
         newHours[index] = value
-        setLocalConfig((prev: any) => ({
+        setLocalConfig((prev) => ({
             ...prev,
             [type]: {
                 ...prev[type],
