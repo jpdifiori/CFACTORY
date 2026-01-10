@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
                 const encryptedToken = encryptToken(longLivedToken, projectId);
 
                 const { data: connection, error: upsertError } = await (supabase
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .from('social_connections') as any)
                     .upsert({
                         project_id: projectId,
@@ -126,8 +127,9 @@ export async function GET(req: NextRequest) {
         // Redirect back to connections page with success
         return NextResponse.redirect(`${req.nextUrl.origin}/projects/${projectId}/connections?success=instagram_connected`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('OAuth Callback Error:', error);
-        return NextResponse.redirect(`${req.nextUrl.origin}/projects/${projectId}/connections?error=${encodeURIComponent(error.message)}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.redirect(`${req.nextUrl.origin}/projects/${projectId}/connections?error=${encodeURIComponent(errorMessage)}`);
     }
 }
