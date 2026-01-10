@@ -11,6 +11,7 @@ export async function bakeImageOnFrontend(
         shadowIntensity?: number;
         opacity?: number;
         lineHeight?: number;
+        containerWidth?: number;
     }
 ): Promise<Blob | null> {
     return new Promise(async (resolve, reject) => {
@@ -39,9 +40,10 @@ export async function bakeImageOnFrontend(
                         reader.onloadend = () => res(reader.result as string);
                         reader.readAsDataURL(blob);
                     });
-                } catch (fetchErr: any) {
+                } catch (fetchErr: unknown) {
                     clearTimeout(timeoutId);
-                    throw new Error(`Image Fetch Error: ${fetchErr.message}`);
+                    const errorMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+                    throw new Error(`Image Fetch Error: ${errorMsg}`);
                 }
             }
 
@@ -53,7 +55,7 @@ export async function bakeImageOnFrontend(
             await new Promise((res, rej) => {
                 const timer = setTimeout(() => rej(new Error("Image Load Timeout (10s)")), 10000);
                 img.onload = () => { clearTimeout(timer); res(null); };
-                img.onerror = (e) => { clearTimeout(timer); rej(new Error("Failed to load base64 image")); };
+                img.onerror = () => { clearTimeout(timer); rej(new Error("Failed to load base64 image")); };
             });
 
             // 3. Create Memory Canvas
@@ -80,13 +82,13 @@ export async function bakeImageOnFrontend(
 
             // Calculate real font size based on container width ratio (resolution independence)
             let finalFontSize = safeSize;
-            if ((safeStyle as any).containerWidth) {
-                const scaleFactor = canvas.width / (safeStyle as any).containerWidth;
+            if (safeStyle.containerWidth) {
+                const scaleFactor = canvas.width / safeStyle.containerWidth;
                 finalFontSize = Math.round(safeSize * scaleFactor);
             }
 
             // Wait for font if possible, but proceed if not
-            try { await document.fonts.load(`${finalFontSize}px "${fontName}"`); } catch (e) { }
+            try { await document.fonts.load(`${finalFontSize}px "${fontName}"`); } catch { }
 
             ctx.font = `900 ${finalFontSize}px "${fontName}", sans-serif`;
             ctx.textAlign = 'center';

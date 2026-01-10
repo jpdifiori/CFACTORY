@@ -1,6 +1,5 @@
 import { generateImageFal } from './fal';
 import { createClient } from '@/utils/supabase/server';
-import { PostgrestResponse } from '@supabase/supabase-js';
 import { marked } from 'marked';
 
 /**
@@ -11,7 +10,7 @@ function mdToHtml(md: string): string {
     if (!md) return '';
 
     // 1. Initial normalization
-    let text = md.trim()
+    const text = md.trim()
         .replace(/\r\n/g, '\n');
 
     // 2. Parse using marked
@@ -68,7 +67,7 @@ export async function stitchImages(
 
             // Upload to Supabase Storage
             const fileName = `premium-forge/${projectId}/${userId}-${Date.now()}-${index}.png`;
-            const { data, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from('project-images')
                 .upload(fileName, buffer, {
                     contentType: 'image/png',
