@@ -21,11 +21,7 @@ export default function Home() {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -54,7 +50,11 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   const statCards = [
     { label: t.dashboard.stats.active_projects, value: stats.projectsCount.toString(), change: "+0", icon: Rocket },

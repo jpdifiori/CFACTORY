@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2 } from 'lucide-react'
+import { SafeSelectBuilder } from '@/utils/supabaseSafe'
 
 export default function HubRedirect() {
     const router = useRouter()
@@ -11,11 +12,13 @@ export default function HubRedirect() {
 
     useEffect(() => {
         const redirect = async () => {
-            const { data: projects } = await supabase
-                .from('project_master')
+            // ...
+
+            const { data: projects } = await (supabase
+                .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
                 .select('id')
                 .order('created_at', { ascending: false })
-                .limit(1) as any
+                .limit(1)
 
             if (projects && projects.length > 0) {
                 router.replace(`/hub/${projects[0].id}`)

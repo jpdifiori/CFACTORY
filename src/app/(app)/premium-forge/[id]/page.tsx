@@ -133,7 +133,7 @@ export default function PremiumProjectDetailPage() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             updateProjectDesignAction(project.id, debouncedOverrides as any)
         }
-    }, [debouncedOverrides])
+    }, [debouncedOverrides, project?.id, loading])
 
     // Editor States
     const [isEditing, setIsEditing] = useState(false)
@@ -152,18 +152,7 @@ export default function PremiumProjectDetailPage() {
         })
     }
 
-    useEffect(() => {
-        fetchProjectData()
-    }, [id])
-
-    useEffect(() => {
-        if (selectedChapter?.content_html) {
-            setEditedContent(selectedChapter.content_html)
-            setIsEditing(false)
-        }
-    }, [selectedChapter])
-
-    const fetchProjectData = async () => {
+    const fetchProjectData = React.useCallback(async () => {
         const { data: p } = await (supabase
             .from('premium_content_projects') as unknown as SafeSelectBuilder<'premium_content_projects'>)
             .select(`*, project_master(app_name)`)
@@ -198,15 +187,13 @@ export default function PremiumProjectDetailPage() {
         }
 
         setLoading(false)
-    }
+    }, [id, selectedChapter, supabase])
 
     useEffect(() => {
-        if (selectedChapter) {
-            fetchBlocks(selectedChapter.id)
-        }
-    }, [selectedChapter])
+        fetchProjectData()
+    }, [fetchProjectData])
 
-    const fetchBlocks = async (chapterId: string) => {
+    const fetchBlocks = React.useCallback(async (chapterId: string) => {
         console.log("Fetching blocks for chapter:", chapterId)
         const { data: b, error } = await (supabase
             .from('content_blocks') as unknown as SafeSelectBuilder<'content_blocks'>)
@@ -227,7 +214,13 @@ export default function PremiumProjectDetailPage() {
             setBlocks([])
             return []
         }
-    }
+    }, [supabase])
+
+    useEffect(() => {
+        if (selectedChapter) {
+            fetchBlocks(selectedChapter.id)
+        }
+    }, [selectedChapter, fetchBlocks])
 
     const handleCreateBlueprint = async () => {
         if (!selectedChapter) return
@@ -455,6 +448,7 @@ export default function PremiumProjectDetailPage() {
         // but for now we keep layout overrides for consistency across themes
     }
 
+    // const resetOverrides = () => { ... } // Removing unused function or keeping commented out if planned for future use
     const resetOverrides = () => {
         setOverrides({
             fontSize: 18,
@@ -476,7 +470,9 @@ export default function PremiumProjectDetailPage() {
             borderRadius: 0,
             borderWidth: 0,
             borderColor: '#e2e8f0',
-            shadowDepth: 'none'
+            shadowDepth: 'none',
+            layoutMode: 'Flow',
+            imageSpacing: 40
         })
     }
 
@@ -820,13 +816,14 @@ export default function PremiumProjectDetailPage() {
                                     <BlockRenderer
                                         key={block.id}
                                         id={block.id}
-                                        type={block.type}
+                                        type={block.type as any} // Temporary cast if BlockType verification is complex, or ensure strict type match
                                         content={block.content_json}
                                         status={block.status}
+                                        imageUrl={block.image_url || undefined}
                                         htmlOverride={block.html_override}
                                         isEditing={isEditing}
                                         onSelection={handleSelection}
-                                        onUpdate={(updates: any) => handleUpdateBlock(block.id, updates)}
+                                        onUpdate={(updates: { content_json?: unknown; html_override?: string }) => handleUpdateBlock(block.id, updates)}
                                         onMove={(dir: 'up' | 'down') => handleMoveBlock(block.id, dir)}
                                         onDelete={() => handleDeleteBlock(block.id)}
                                     />

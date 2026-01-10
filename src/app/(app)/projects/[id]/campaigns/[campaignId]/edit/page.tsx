@@ -9,6 +9,7 @@ import { Database } from '@/types/database.types'
 import { CreatableSelect } from '@/components/ui/CreatableSelect'
 import { useLanguage } from '@/context/LanguageContext'
 import { useTitle } from '@/context/TitleContext'
+import { SafeSelectBuilder, SafeUpdateBuilder } from '@/utils/supabaseSafe'
 
 type Objective = Database['public']['Tables']['campaigns']['Row']['objective']
 type VisualStyle = Database['public']['Tables']['campaigns']['Row']['visual_style']
@@ -82,19 +83,21 @@ export default function EditCampaignPage() {
 
     useEffect(() => {
         const fetchProject = async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data } = await (supabase.from('project_master').select('app_name').eq('id', projectId).single() as any)
-            if (data) setProjectName(data.app_name)
+            const { data } = await (supabase
+                .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
+                .select('app_name')
+                .eq('id', projectId)
+                .single()
+            if (data) setProjectName((data as { app_name: string }).app_name)
         }
 
         const fetchCampaign = async () => {
             try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { data, error } = await (supabase
-                    .from('campaigns')
+                    .from('campaigns') as unknown as SafeSelectBuilder<'campaigns'>)
                     .select('*')
                     .eq('id', campaignId)
-                    .single() as any)
+                    .single()
 
                 if (error) throw error
                 if (data) {
@@ -146,9 +149,8 @@ export default function EditCampaignPage() {
         setSaving(true)
 
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase
-                .from('campaigns') as any)
+                .from('campaigns') as unknown as SafeUpdateBuilder<'campaigns'>)
                 .update(formData)
                 .eq('id', campaignId)
 

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react'
 import { Book, FileText, Layout, Plus, Sparkles, ChevronRight, Clock, Star, ArrowRight, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { THEMES, applyTheme } from '@/lib/ai/templates'
 import { getPremiumProjectsAction, createPremiumProjectAction } from '@/app/actions/premium_forge'
 import { createClient } from '@/utils/supabase/client'
 import { useLanguage } from '@/context/LanguageContext'
@@ -36,7 +35,6 @@ export default function PremiumForgePage() {
 
     // Strategy State
     const [strategyResponse, setStrategyResponse] = useState<StrategyResponse | null>(null)
-    const [isCalculatedStrategy, setIsCalculatedStrategy] = useState(false)
     const [isCalculatingStrategy, setIsCalculatingStrategy] = useState(false)
 
     // New Project State (Keeping these for final submission)
@@ -45,30 +43,29 @@ export default function PremiumForgePage() {
     const [myProjects, setMyProjects] = useState<ProjectMaster[]>([])
 
     useEffect(() => {
-        fetchInitialData()
-    }, [])
+        const fetchInitialData = async () => {
+            try {
+                const data = await getPremiumProjectsAction()
+                setProjects(data || [])
 
-    const fetchInitialData = async () => {
-        try {
-            const data = await getPremiumProjectsAction()
-            setProjects(data || [])
-
-            // Fetch projects for the dropdown
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data: p } = await (supabase
-                    .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
-                    .select('id, app_name')
-                    .eq('user_id', user.id)
-                setMyProjects(p as ProjectMaster[])
-                if (p && p.length > 0) setSelectedProjectId(p[0].id)
+                // Fetch projects for the dropdown
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: p } = await (supabase
+                        .from('project_master') as unknown as SafeSelectBuilder<'project_master'>)
+                        .select('id, app_name')
+                        .eq('user_id', user.id)
+                    setMyProjects(p as ProjectMaster[])
+                    if (p && p.length > 0) setSelectedProjectId(p[0].id)
+                }
+            } catch (err) {
+                console.error("Dashboard error:", err)
+            } finally {
+                setLoading(false)
             }
-        } catch (err) {
-            console.error("Dashboard error:", err)
-        } finally {
-            setLoading(false)
         }
-    }
+        fetchInitialData()
+    }, [supabase])
 
     const handleCalculateStrategy = async () => {
         if (!topic || !selectedProjectId) return
@@ -82,9 +79,10 @@ export default function PremiumForgePage() {
             }
             setStrategyResponse(res)
             setWizardStep(1.5)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Strategy error:", err)
-            alert(`Strategy error: ${err.message || 'Unknown error'}`)
+            const message = err instanceof Error ? err.message : 'Unknown error'
+            alert(`Strategy error: ${message}`)
         } finally {
             setIsCalculatingStrategy(false)
         }
@@ -380,7 +378,7 @@ export default function PremiumForgePage() {
                                                     {(strategyResponse.viral_card.hooks || []).map(hook => (
                                                         <div key={hook} className="flex items-start gap-2 text-xs text-gray-300 font-medium italic">
                                                             <div className="mt-1.5 w-1 h-1 rounded-full bg-pink-500 shrink-0" />
-                                                            "{hook}"
+                                                            &quot;{hook}&quot;
                                                         </div>
                                                     ))}
                                                 </div>
@@ -442,7 +440,7 @@ export default function PremiumForgePage() {
                                                 </div>
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded">Hook</span>
-                                                    <p className="text-xs text-gray-400 font-medium italic">"{t.hook}"</p>
+                                                    <p className="text-xs text-gray-400 font-medium italic">&quot;{t.hook}&quot;</p>
                                                 </div>
                                                 <p className="text-[11px] text-gray-500 font-bold leading-relaxed">{t.reasoning}</p>
                                             </div>
