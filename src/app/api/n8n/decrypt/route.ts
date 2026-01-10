@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
             const supabase = await createClient();
 
             // Fetch connection to check expiry and get refresh token
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let { data: connection } = await (supabase
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .from('social_connections') as any)
                 .select('*')
                 .eq('project_id', project_id)
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
 
             // Fallback: If not found by encrypted_token, maybe it was recently refreshed and n8n has old data?
             if (!connection) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { data: fallbackConn } = await (supabase
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     .from('social_connections') as any)
                     .select('*')
                     .eq('project_id', project_id)
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
                             const newExpiry = new Date(Date.now() + refreshData.expires_in * 1000);
 
                             // Update database with new token
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             await (supabase
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 .from('social_connections') as any)
                                 .update({
                                     encrypted_token: finalEncryptedToken,
