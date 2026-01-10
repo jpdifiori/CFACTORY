@@ -4,17 +4,34 @@ import { X, Save, RefreshCw, Sparkles, Loader2, FileText, ImageIcon, Type } from
 import { Database } from '@/types/database.types'
 import { createClient } from '@/utils/supabase/client'
 import { ImageTextEditor } from './ImageTextEditor'
+import { EditorStyle } from './SmartTextEditor'
 
 type ContentItem = Database['public']['Tables']['content_queue']['Row']
+
+interface GeminiOutput {
+    headline?: string;
+    body_copy?: string;
+    hashtags?: string[];
+    [key: string]: unknown;
+}
+
+interface ExtendedContentItem extends Omit<ContentItem, 'gemini_output' | 'image_url' | 'image_final_url' | 'overlay_text_content' | 'overlay_style_json'> {
+    gemini_output: GeminiOutput | null;
+    overlay_text_content?: string | null;
+    overlay_style_json?: EditorStyle | null;
+    image_url?: string | null;
+    image_final_url?: string | null;
+}
 
 interface QuickEditorProps {
     isOpen: boolean
     onClose: () => void
-    onSave: (id: string, newContent: any, imagePrompt?: string, triggerGen?: boolean, overlayText?: string, overlayStyle?: any, imageFinalUrl?: string, skipText?: boolean, targetSize?: string) => void
+    onSave: (id: string, newContent: GeminiOutput, imagePrompt?: string, triggerGen?: boolean, overlayText?: string, overlayStyle?: EditorStyle, imageFinalUrl?: string, skipText?: boolean, targetSize?: string) => void
     item: ContentItem | null
 }
 
-export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps) {
+export function QuickEditor({ isOpen, onClose, onSave, item: rawItem }: QuickEditorProps) {
+    const item = rawItem as ExtendedContentItem | null
     const [headline, setHeadline] = useState('')
     const [body, setBody] = useState('')
     const [hashtags, setHashtags] = useState('')
@@ -25,7 +42,7 @@ export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps)
 
     // Overlay States
     const [overlayText, setOverlayText] = useState('')
-    const [overlayStyle, setOverlayStyle] = useState<any>(null)
+    const [overlayStyle, setOverlayStyle] = useState<EditorStyle | null>(null)
     const [showTextEditor, setShowTextEditor] = useState(false)
 
     const supabase = createClient()
@@ -34,13 +51,13 @@ export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps)
 
     useEffect(() => {
         if (item && item.id !== prevItemId) {
-            const output = item.gemini_output as any
-            setHeadline(output?.headline || '')
-            setBody(output?.body_copy || '')
-            setHashtags(output?.hashtags?.join(' ') || '')
+            const output = item.gemini_output || {}
+            setHeadline(output.headline || '')
+            setBody(output.body_copy || '')
+            setHashtags(output.hashtags?.join(' ') || '')
             setImagePrompt(item.image_ai_prompt || '')
-            setOverlayText((item as any).overlay_text_content || '')
-            setOverlayStyle((item as any).overlay_style_json || null)
+            setOverlayText(item.overlay_text_content || '')
+            setOverlayStyle(item.overlay_style_json || null)
             setPrevItemId(item.id)
         }
     }, [item, prevItemId])
@@ -48,13 +65,13 @@ export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps)
     if (!isOpen || !item) return null
 
     // Determine the best image URL to show in the editor
-    const displayImageUrl = (item as any).image_url || (item as any).image_final_url
+    const displayImageUrl = item.image_url || item.image_final_url
 
     const handleSave = async (shouldClose = true) => {
         setIsSaving(true)
         try {
-            const newContent = {
-                ...(item.gemini_output as any),
+            const newContent: GeminiOutput = {
+                ...(item.gemini_output || {}),
                 headline,
                 body_copy: body,
                 hashtags: hashtags.split(' ').filter(h => h.trim().startsWith('#')),
@@ -69,7 +86,7 @@ export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps)
                 imagePrompt,
                 false,
                 overlayText,
-                overlayStyle,
+                overlayStyle || undefined,
                 item.image_final_url || undefined,
                 false, // Set skipText to false because we WANT to bake if text is present
                 aspectRatio
@@ -87,7 +104,7 @@ export function QuickEditor({ isOpen, onClose, onSave, item }: QuickEditorProps)
         if (!item) return
         setIsGeneratingImage(true)
         try {
-            const newContent = { ...(item.gemini_output as any) }
+            const newContent: GeminiOutput = { ...(item.gemini_output || {}) }
             // FORCE SKIP TEXT + ASPECT RATIO
             await onSave(
                 item.id,

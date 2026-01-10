@@ -6,7 +6,7 @@ import { Sparkles, Loader2, Save, Move, Type } from 'lucide-react';
 import { analyzeImageForPlacementAction } from '@/app/actions/imageActions';
 import Image from 'next/image';
 
-interface EditorStyle {
+export interface EditorStyle {
     x?: number;
     y?: number;
     fontSize?: number;
