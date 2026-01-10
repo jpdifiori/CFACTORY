@@ -2,12 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import puppeteer from 'puppeteer';
 
+interface ContentBlock {
+    index: number;
+    type: string;
+    html_override?: string;
+    image_url?: string;
+    content_json: {
+        mainTitle?: string;
+        description?: string;
+        contentHtml?: string;
+        quote?: string;
+        author?: string;
+    };
+}
+
 export async function POST(req: NextRequest) {
     try {
         const { projectId } = await req.json();
         const supabase = await createClient();
 
         // 1. Fetch Project & Blocks
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: project, error: projectError } = await (supabase
             .from('premium_content_projects')
             .select(`*, content_blocks(*)`)
@@ -18,7 +33,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
         }
 
-        const blocks = (project.content_blocks || []).sort((a: any, b: any) => a.index - b.index);
+        const blocks = (project.content_blocks || []).sort((a: ContentBlock, b: ContentBlock) => a.index - b.index);
 
         // 2. Build HTML Template
         const htmlContent = `
@@ -37,7 +52,7 @@ export async function POST(req: NextRequest) {
             </head>
             <body class="bg-white">
                 <div id="content">
-                    ${blocks.map((block: any) => {
+                    ${blocks.map((block: ContentBlock) => {
             const content = block.content_json;
             // Simplified manual implementation of BlockRenderer for SSR PDF
             if (block.html_override) return `<div>${block.html_override}</div>`;
@@ -86,6 +101,7 @@ export async function POST(req: NextRequest) {
         await browser.close();
 
         // 4. Return PDF
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
@@ -93,8 +109,8 @@ export async function POST(req: NextRequest) {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('PDF Export failed:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
     }
 }
