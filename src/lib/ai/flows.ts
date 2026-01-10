@@ -23,6 +23,7 @@ export interface IdeasOutput {
 }
 
 export async function runIdeaGeneratorFlow(input: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     lastPosts: string[]
     objective: string
@@ -135,6 +136,7 @@ interface CopywriterInput {
             orientation: string
             problem: string
             differential?: string
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             insights?: any
         }
     }
@@ -272,7 +274,9 @@ export async function runVisualArtistFlow(input: VisualArtistInput): Promise<AIR
 // --- Orchestration Helper for Modal ---
 
 export async function generateDetailedFlow(input: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     campaign: any
     config: {
         count: number
@@ -282,7 +286,7 @@ export async function generateDetailedFlow(input: {
     lastHeadlines?: string[]
 }) {
     const results = []
-    let totalUsage: AIUsage = { prompt_tokens: 0, candidates_tokens: 0, total_tokens: 0 }
+    const totalUsage: AIUsage = { prompt_tokens: 0, candidates_tokens: 0, total_tokens: 0 }
 
     console.log("Starting Multiplier Flow with objective:", input.campaign.objective)
 
@@ -363,9 +367,10 @@ export async function generateDetailedFlow(input: {
                 angle_assigned: angle // Track for DB
             })
 
-        } catch (itemError: any) {
+        } catch (itemError: unknown) {
             console.error(`Error generating item ${i + 1}:`, itemError)
-            throw new Error(`Multiplier Flow Failed at item ${i + 1}: ${itemError.message}`)
+            const errorMessage = itemError instanceof Error ? itemError.message : String(itemError)
+            throw new Error(`Multiplier Flow Failed at item ${i + 1}: ${errorMessage}`)
         }
     }
 
@@ -385,6 +390,7 @@ export interface EbookOutlineOutput {
 
 export async function runEbookOutlineFlow(input: {
     topic: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     language: string
 }): Promise<AIResponse<EbookOutlineOutput>> {
@@ -423,6 +429,7 @@ export async function runChapterGenerationFlow(input: {
     chapterIndex: number
     totalChapters: number
     previousSummaries: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     language: string
 }): Promise<AIResponse<ChapterGenerationOutput>> {
@@ -465,6 +472,7 @@ export async function runChapterBlueprintFlow(input: {
     chapterTitle: string
     chapterDescription: string
     ebookTopic: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     language: string
 }): Promise<AIResponse<ChapterBlueprintOutput>> {
@@ -514,6 +522,7 @@ export async function runBlockGenerationFlow(input: {
     blockType: BlockType
     chapterTitle: string
     ebookTopic: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     language: string
     previousBlocksContext?: string
@@ -581,6 +590,7 @@ export interface ForgeWizardOutput {
 
 export async function runForgeWizardFlow(input: {
     topic: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: any
     language: string
 }): Promise<AIResponse<ForgeWizardOutput>> {

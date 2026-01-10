@@ -224,6 +224,7 @@ function sanitizeJSONString(str: string): string {
  * @param params Optional parameters (skipText, style, etc)
  * @returns Base64 image data or null
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function generateImageGemini(prompt: string, params: Record<string, any> = {}): Promise<string | null> {
     try {
         if (!apiKey) {
