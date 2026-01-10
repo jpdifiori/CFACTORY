@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         // 4. Upload to Supabase Storage
         const uploadPath = `premium-forge-docs/${user.id}/${filename || `doc-${Date.now()}`}.pdf`;
 
-        const { data, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
             .from('project-images') // Reusing the main bucket or specialized one if created
             .upload(uploadPath, pdfBuffer, {
                 contentType: 'application/pdf',
@@ -75,11 +75,11 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, url: publicUrl });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('PDF Generation Error:', error);
         return NextResponse.json({
             error: 'Failed to generate PDF',
-            details: error.message
+            details: error instanceof Error ? error.message : 'Unknown error'
         }, { status: 500 });
     }
 }

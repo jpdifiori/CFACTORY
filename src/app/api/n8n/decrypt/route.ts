@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
             const supabase = await createClient();
 
             // Fetch connection to check expiry and get refresh token
-            let { data: connection, error: fetchError } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let { data: connection } = await (supabase
                 .from('social_connections') as any)
                 .select('*')
                 .eq('project_id', project_id)
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
 
             // Fallback: If not found by encrypted_token, maybe it was recently refreshed and n8n has old data?
             if (!connection) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { data: fallbackConn } = await (supabase
                     .from('social_connections') as any)
                     .select('*')
@@ -79,6 +81,7 @@ export async function POST(req: NextRequest) {
                             const newExpiry = new Date(Date.now() + refreshData.expires_in * 1000);
 
                             // Update database with new token
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             await (supabase
                                 .from('social_connections') as any)
                                 .update({
@@ -115,7 +118,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(responseBody);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Decryption API Error:', error);
         return NextResponse.json({ error: 'Decryption failed' }, { status: 500 });
     }

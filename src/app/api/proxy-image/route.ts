@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
             status: 200,
             headers
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Proxy Error:', error);
-        return new NextResponse(error.message || 'Internal Server Error', { status: 500 });
+        return new NextResponse(error instanceof Error ? error.message : 'Internal Server Error', { status: 500 });
     }
 }
